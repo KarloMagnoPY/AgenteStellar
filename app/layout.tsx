@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -13,9 +13,21 @@ const body = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Goya — agente de voz",
-  description:
-    "Lean Canvas de un agente de voz que autentica, cotiza y mueve USDC de demostración por un anchor de Stellar.",
+  title: "agenteStellar",
+  description: "Agente de voz que autentica, cotiza y mueve USDC de demostración por un anchor de Stellar.",
+  applicationName: "agenteStellar",
+  appleWebApp: {
+    capable: true,
+    title: "agenteStellar",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#06110c",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

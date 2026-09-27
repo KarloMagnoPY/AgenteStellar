@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LeanCanvas, type CanvasKey } from "@/components/lean-canvas";
-import type { AgentResponse, Step, WalletView } from "@/lib/types";
+import { ChatBubble, CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
+import type { AgentResponse, PublicTransaction, Step, WalletView } from "@/lib/types";
 
 type ChatMessage = {
   id: string;
@@ -42,6 +42,65 @@ type RecognitionCtor = new () => BrowserRecognition;
 
 const PROMPTS = ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?"];
 
+function assetName(asset: string) {
+  if (asset.startsWith("iso4217:")) return asset.slice("iso4217:".length);
+  return asset.split(":")[1] ?? asset;
+}
+
+function Receipt({ transaction }: { transaction: PublicTransaction }) {
+  const hash = transaction.stellarTransactionId;
+  const short = hash ? `${hash.slice(0, 8)}…${hash.slice(-8)}` : "sin hash todavía";
+  const body = (
+    <>
+      <p className="text-[10px] tracking-[0.18em] text-mint uppercase">Comprobante</p>
+      <p className="mt-1 text-sm text-foreground">
+        {transaction.kind === "deposit-exchange" ? "Depósito" : "Retiro"} ·{" "}
+        {STATUS[transaction.status] ?? transaction.status}
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <dt className="text-muted">Entra</dt>
+          <dd>
+            {transaction.amountIn} {assetName(transaction.amountInAsset)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Sale</dt>
+          <dd>
+            {transaction.amountOut} {assetName(transaction.amountOutAsset)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">Comisión</dt>
+          <dd>{transaction.fee}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Hash</dt>
+          <dd className="font-mono text-[11px]">{short}</dd>
+        </div>
+      </dl>
+      {transaction.explorerUrl ? (
+        <p className="mt-3 text-xs text-accent">Abrir en Stellar Expert</p>
+      ) : null}
+    </>
+  );
+
+  const className = "mt-3 block rounded-2xl border border-white/20 bg-black/25 px-3 py-3";
+  if (!transaction.explorerUrl) return <div className={className}>{body}</div>;
+  return (
+    <a className={className} href={transaction.explorerUrl} target="_blank" rel="noreferrer">
+      {body}
+    </a>
+  );
+}
+
+const STATUS: Record<string, string> = {
+  pending_user_transfer_start: "esperando fondos",
+  pending_anchor: "el anchor procesa",
+  completed: "completada",
+  error: "error",
+};
+
 function recognitionCtor() {
   if (typeof window === "undefined") return null;
   const vendor = window as Window & {
@@ -51,45 +110,9 @@ function recognitionCtor() {
   return vendor.SpeechRecognition ?? vendor.webkitSpeechRecognition ?? null;
 }
 
-function highlightFor(phase: Phase, message?: ChatMessage): CanvasKey {
-  if (phase === "listening") return "canales";
-  if (phase === "thinking") return "solucion";
-  if (phase === "speaking") return "propuesta";
-  const step = message?.steps?.at(-1);
-  if (message?.transaction?.status === "completed") return "metricas";
-  if (step?.sep === "SEP-38") return "ingresos";
-  if (step?.sep === "SEP-10") return "ventaja";
-  if (step?.sep === "SEP-1") return "canales";
-  if (step?.sep === "SEP-6") return "solucion";
-  return "propuesta";
-}
-
-function Orb({ phase }: { phase: Phase }) {
-  const live = phase === "listening" || phase === "speaking";
-  return (
-    <div className="relative mx-auto grid h-36 w-36 place-items-center">
-      {live ? (
-        <>
-          <span className="goya-ring absolute inset-0 rounded-full border border-amber/70" />
-          <span className="goya-ring absolute inset-0 rounded-full border border-mint/50 [animation-delay:0.6s]" />
-        </>
-      ) : null}
-      <span
-        className={`relative h-24 w-24 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff4e4,#e4a15c_42%,#8a4b22_72%,#24180f)] shadow-[0_0_36px_rgba(228,161,92,0.45)] ${
-          live ? "goya-orb-live" : "goya-orb"
-        }`}
-      />
-      <span className="pointer-events-none absolute bottom-1 flex h-8 items-end gap-1">
-        {Array.from({ length: 9 }, (_, index) => (
-          <span
-            key={index}
-            className={`goya-bar w-0.5 rounded-full bg-foreground/80 ${live ? "h-5" : "h-2"}`}
-            style={{ animationDelay: `${index * 0.08}s`, animationPlayState: live ? "running" : "paused" }}
-          />
-        ))}
-      </span>
-    </div>
-  );
+function money(value: string) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
 export function Console({ initialWallet }: { initialWallet: WalletView }) {
@@ -99,7 +122,7 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
-  const [caption, setCaption] = useState("Toca el micrófono y pide un depósito, una cotización o un retiro.");
+  const [caption, setCaption] = useState("Pide un depósito, una cotización o un retiro.");
   const scroller = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<BrowserRecognition | null>(null);
   const pendingRef = useRef(false);
@@ -212,110 +235,136 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
     recognition.start();
   }
 
-  const latest = [...messages].reverse().find((message) => message.role === "assistant");
   const phaseLabel =
-    phase === "listening" ? "Escuchando" : phase === "thinking" ? "En testnet" : phase === "speaking" ? "Hablando" : "En espera";
-
-  const voice = (
-    <div className="flex h-full min-h-0 flex-col px-4 pb-4">
-      <Orb phase={phase} />
-      <p className="mt-2 text-center text-[10px] tracking-[0.18em] text-mint uppercase">{phaseLabel}</p>
-      <p className="mt-2 line-clamp-3 text-center text-sm text-foreground">{caption}</p>
-      <div className="mt-3 flex justify-center">
-        <button
-          type="button"
-          onClick={listen}
-          disabled={pending}
-          className="rounded-full bg-amber px-5 py-2 text-sm font-medium text-background disabled:opacity-50"
-        >
-          {phase === "listening" ? "Escuchando…" : "Hablar"}
-        </button>
-      </div>
-      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-        {PROMPTS.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            disabled={pending}
-            onClick={() => void send(prompt)}
-            className="rounded-full border border-line px-2.5 py-1 text-[11px] text-muted hover:border-amber hover:text-foreground disabled:opacity-50"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-      <form
-        className="mt-3 flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send(draft);
-        }}
-      >
-        <label className="sr-only" htmlFor="order">
-          Instrucción para el agente
-        </label>
-        <input
-          id="order"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="O escríbela"
-          disabled={pending}
-          maxLength={500}
-          className="min-w-0 flex-1 rounded-full border border-line bg-background/50 px-3 py-2 text-sm outline-none focus:border-amber"
-        />
-        <button
-          type="submit"
-          disabled={pending || !draft.trim()}
-          className="rounded-full border border-line px-3 py-2 text-sm disabled:opacity-40"
-        >
-          Enviar
-        </button>
-      </form>
-      {error ? <p className="mt-2 text-center text-xs text-danger">{error}</p> : null}
-      <div ref={scroller} className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {messages.map((message) => (
-          <article key={message.id}>
-            <p className="text-[10px] tracking-wide text-muted uppercase">
-              {message.role === "user" ? "Tú" : "Goya"}
-            </p>
-            <p className="text-xs leading-5">{message.text}</p>
-            {message.steps && message.steps.length > 0 ? (
-              <ol className="mt-1 space-y-1">
-                {message.steps.map((step, index) => (
-                  <li key={`${message.id}-${index}`} className="text-[11px] text-muted">
-                    <span className="text-amber">{step.sep}</span> {step.title}
-                  </li>
-                ))}
-              </ol>
-            ) : null}
-          </article>
-        ))}
-        {pending ? (
-          <p className="text-[11px] text-muted">La primera vez Friendbot crea las cuentas y tarda un poco.</p>
-        ) : null}
-      </div>
-    </div>
-  );
+    phase === "listening" ? "Escuchando" : phase === "thinking" ? "En testnet" : phase === "speaking" ? "Hablando" : "Listo";
+  const quiet = messages.length === 0;
 
   return (
-    <div className="flex h-dvh flex-col px-3 py-3 lg:px-4">
-      <header className="mb-3 flex items-end justify-between gap-4">
+    <div className="mx-auto flex h-dvh w-full max-w-md flex-col bg-background sm:border-x sm:border-line">
+      <header className="flex items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <div>
-          <p className="font-display text-3xl leading-none text-amber">Goya</p>
-          <p className="mt-1 text-sm text-muted">Lean Canvas de un agente de voz sobre anchors de Stellar</p>
+          <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
+          <p className="mt-1 text-xs text-muted">Agente de voz · testnet</p>
         </div>
-        <p className="rounded-full border border-line px-3 py-1 text-[10px] tracking-[0.16em] text-mint uppercase">
-          Testnet
-        </p>
+        <a
+          className="rounded-2xl bg-paper px-3 py-2 text-right"
+          href={`https://stellar.expert/explorer/testnet/account/${wallet.userPublicKey}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="block font-display text-xl leading-none">
+            <CountUp value={money(wallet.usdc)} />
+          </span>
+          <span className="mt-1 block text-[10px] tracking-wide text-muted uppercase">USDC demo</span>
+        </a>
       </header>
-      <div className="min-h-0 flex-1">
-        <LeanCanvas
-          active={highlightFor(phase, latest)}
-          wallet={wallet}
-          transaction={latest?.transaction ?? null}
-          voice={voice}
-        />
-      </div>
+
+      <main ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5">
+        {quiet ? (
+          <div className="flex flex-1 flex-col items-center justify-center pb-6 text-center">
+            <VoiceOrb phase={phase} large />
+            <p className="mt-2 text-[11px] tracking-[0.2em] text-mint uppercase">{phaseLabel}</p>
+            <p className="mt-3 max-w-[16rem] text-base leading-6">{caption}</p>
+            <p className="mt-2 text-xs text-muted">
+              <CountUp value={money(wallet.xlm)} /> XLM en la cuenta del agente
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 pb-4">
+            {messages.map((message) => (
+              <ChatBubble key={message.id} mine={message.role === "user"}>
+                <p className="mb-1 text-[10px] tracking-wide text-muted uppercase">
+                  {message.role === "user" ? "Tú" : "agenteStellar"}
+                </p>
+                <div className={message.role === "user" ? "glass-user rounded-3xl rounded-br-md px-4 py-3" : "glass rounded-3xl rounded-bl-md px-4 py-3"}>
+                  <p className="text-sm leading-6 [overflow-wrap:anywhere]">{message.text}</p>
+                  {message.steps && message.steps.length > 0 ? (
+                    <ol className="mt-3 space-y-1 border-t border-white/10 pt-3">
+                      {message.steps.map((step, index) => (
+                        <li key={`${message.id}-${index}`} className="text-xs text-muted">
+                          <span className="text-accent">{step.sep}</span> {step.title}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {message.transaction ? <Receipt transaction={message.transaction} /> : null}
+                </div>
+              </ChatBubble>
+            ))}
+            {pending ? (
+              <ChatBubble mine={false}>
+                <p className="mb-1 text-[10px] tracking-wide text-muted uppercase">agenteStellar</p>
+                <div className="glass flex items-center gap-3 rounded-3xl rounded-bl-md px-4 py-3">
+                  <DotsLoader />
+                  <p className="text-xs text-muted">En testnet. La primera vez Friendbot tarda un poco.</p>
+                </div>
+              </ChatBubble>
+            ) : null}
+          </div>
+        )}
+      </main>
+
+      <footer className="px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {quiet ? null : (
+          <div className="mb-3 flex items-center gap-3">
+            <VoiceOrb phase={phase} />
+            <p className="line-clamp-2 min-w-0 flex-1 text-sm text-muted">{caption}</p>
+          </div>
+        )}
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={listen}
+            disabled={pending}
+            aria-label={phase === "listening" ? "Escuchando" : "Hablar"}
+            className="grid h-20 w-20 place-items-center rounded-full bg-accent text-sm font-medium text-background disabled:opacity-50"
+          >
+            {phase === "listening" ? "···" : "Hablar"}
+          </button>
+        </div>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {PROMPTS.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              disabled={pending}
+              onClick={() => void send(prompt)}
+              className="shrink-0 rounded-full border border-line px-3 py-2 text-xs text-muted disabled:opacity-50"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void send(draft);
+          }}
+        >
+          <label className="sr-only" htmlFor="order">
+            Instrucción para el agente
+          </label>
+          <input
+            id="order"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="O escríbela"
+            disabled={pending}
+            maxLength={500}
+            enterKeyHint="send"
+            className="glass min-w-0 flex-1 rounded-full px-4 py-3 text-base outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={pending || !draft.trim()}
+            className="rounded-full bg-paper-2 px-4 py-3 text-sm disabled:opacity-40"
+          >
+            Enviar
+          </button>
+        </form>
+        {error ? <p className="mt-2 text-center text-xs text-danger">{error}</p> : null}
+      </footer>
     </div>
   );
 }

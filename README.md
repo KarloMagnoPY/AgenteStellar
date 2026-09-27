@@ -1,12 +1,72 @@
-# Goya
+# agenteStellar
 
-Agente de voz para un hackathon. El producto está contado como un Lean Canvas: problema, segmentos, propuesta, solución, canales, métricas, ventaja, costos e ingresos.
+Agente de voz para el teléfono. Con una frase entra o sale de Stellar a través de un anchor de demostración en testnet.
 
-Entra y sale de Stellar por un anchor de demostración en testnet. Puedes hablarle o escribirle.
+El USDC lo emite ese anchor. No es USDC de Circle. El abono bancario es una simulación. El pago en la red es real y queda como comprobante en [Stellar Expert](https://stellar.expert/explorer/testnet).
 
-El usuario escribe una orden. El agente descubre el `stellar.toml` (SEP-1), firma el challenge (SEP-10), pide una cotización en firme (SEP-38) y abre un depósito o retiro (SEP-6). El USDC lo emite el propio anchor: es un activo de prueba, no USDC de Circle. El abono bancario es simulado. El pago en Stellar es real y se puede abrir en Stellar Expert.
+## Qué usa
 
-Sin clave de modelo, Goya usa un agente de protocolo que entiende órdenes como «Fondea 25 USD». Con `AI_GATEWAY_API_KEY` o `VERCEL_OIDC_TOKEN`, las frases que no reconoce pasan por un modelo (`GOYA_MODEL`, por defecto `anthropic/claude-sonnet-5`).
+| Pieza | Para qué |
+| --- | --- |
+| Next.js 16 (App Router) y React 19 | Interfaz y rutas del servidor |
+| TypeScript | Tipos de punta a punta |
+| Tailwind CSS 4 | Estilos y layout móvil |
+| anime.js 4 | Orbe de voz, conteo de saldos, entrada del chat y loader |
+| Web Speech API | Reconocimiento `es-MX` y lectura de la respuesta |
+| `@stellar/stellar-sdk` 17 | Cuentas, SEP-10, trustline, pagos y Horizon |
+| Friendbot de testnet | XLM para crear las cuentas |
+| Horizon testnet | Envío y lectura de transacciones |
+| AI SDK 7 (`ToolLoopAgent`) | Agente de lenguaje, solo si hay clave de AI Gateway |
+| Zod 4 | Esquema de las herramientas del modelo |
+
+El modelo por defecto, si configuras `AI_GATEWAY_API_KEY` o `VERCEL_OIDC_TOKEN`, es `anthropic/claude-sonnet-5`. Se cambia con `GOYA_MODEL`. Sin clave, el agente de protocolo resuelve las órdenes conocidas y no llama a ningún modelo.
+
+## Cómo está construido
+
+```text
+Teléfono (voz o texto)
+        │
+        ▼
+components/console.tsx + components/motion.tsx
+        │  POST /api/agent
+        ▼
+Agente de protocolo ──o── Agente de lenguaje (AI Gateway)
+        │
+        ├─ Red: Friendbot, trustline USDC, pagos en Horizon
+        └─ HTTP al anchor local
+                ├─ /.well-known/stellar.toml     SEP-1
+                ├─ /sep/auth                     SEP-10
+                ├─ /sep38/quote                  SEP-38
+                ├─ /sep/deposit-exchange         SEP-6
+                ├─ /sep/withdraw-exchange        SEP-6
+                ├─ /sep/demo/fiat                abono bancario simulado
+                └─ /sep/demo/observe             verifica el pago en Horizon
+```
+
+Hay dos cuentas de testnet, creadas en esta máquina y guardadas en `.data/state.json` (no se sube a git):
+
+- **Agente.** Firma el challenge SEP-10, abre la trustline y, en un retiro, envía el USDC.
+- **Anchor.** Publica el `stellar.toml`, cotiza, y emite o quema el USDC.
+
+Un depósito recorre descubrimiento, autenticación, cotización y SEP-6. El endpoint de demostración marca el USD como recibido y el anchor crea los tokens con un pago desde su cuenta emisora. Un retiro hace el camino inverso: el agente paga al emisor (el activo se quema) y el anchor confirma el hash en Horizon. El mensaje del chat muestra ese hash como comprobante y abre la transacción en Stellar Expert.
+
+## Modelo de negocio
+
+agenteStellar es el cajero de un anchor: una frase reemplaza la web del banco.
+
+| Bloque | Qué es |
+| --- | --- |
+| Problema | Elegir anchor es opaco, un agente no puede rampear solo y el usuario no ve el protocolo |
+| Segmentos | Agentes que necesitan USDC, wallets y fintechs en Latinoamérica, equipos de hackathon |
+| Propuesta | Di una frase y entra o sal de Stellar |
+| Solución | SEP-1, SEP-10, SEP-38 y SEP-6, por voz o por texto |
+| Canales | Voz en el navegador, texto y `stellar.toml` |
+| Métricas | USDC en la cuenta, depósitos y retiros completados, comisión cobrada |
+| Ventaja | El agente firma solo y deja el hash verificable |
+| Costos | Liquidez del anchor, fee de red y, fuera del demo, KYC y banca |
+| Ingresos | 1% en cada cotización. En el demo, 25.00 USD entran y salen 24.75 USDC |
+
+El spread del on-ramp y del off-ramp es el negocio del anchor. En este prototipo el fiat no se cobra: sirve para enseñar el flujo. El ingreso visible es esa comisión del 1% aplicada en la cotización.
 
 ## Correrlo
 
@@ -15,13 +75,11 @@ npm install
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000). La primera orden tarda porque Friendbot crea la cuenta del agente y la del anchor, y se abre la trustline.
-
-Las claves quedan en `.data/state.json`. Son de testnet y no se suben al repositorio.
+Abre [http://localhost:3000](http://localhost:3000). La primera orden tarda porque Friendbot crea las dos cuentas y la trustline.
 
 ## Guion de demo
 
-1. «Fondea 25 USD». El recibo debe quedar en `completed` y el saldo cerca de 24.75 USDC.
-2. Abre la transacción en Stellar Expert.
-3. «Retira 10 USDC». El agente envía el activo al emisor y el anchor lo verifica en Horizon.
-4. Muestra `/.well-known/stellar.toml` para enseñar el descubrimiento del anchor.
+1. «Fondea 25 USD». El comprobante del mensaje queda en completada y el saldo baja la comisión.
+2. Toca el comprobante y ábrelo en Stellar Expert.
+3. «Retira 10 USDC». El agente envía el activo al emisor y el anchor verifica el pago.
+4. Muestra `/.well-known/stellar.toml` para el descubrimiento del anchor.

@@ -169,7 +169,7 @@ code="${ASSET_CODE}"
 issuer="${anchor}"
 display_decimals=2
 name="USDC de demostración"
-desc="Activo de prueba emitido por el anchor Goya en testnet. No es USDC de Circle."
+desc="Activo de prueba emitido por el anchor agenteStellar en testnet. No es USDC de Circle."
 is_asset_anchored=true
 anchor_asset_type="fiat"
 anchor_asset="USD"
@@ -326,7 +326,7 @@ export async function createQuote(req: Request) {
     buy_delivery_method?: string;
   };
   if (body.context !== "sep6") {
-    throw new AnchorError(400, "Goya solo cotiza en contexto sep6.");
+    throw new AnchorError(400, "agenteStellar solo cotiza en contexto sep6.");
   }
   if (!body.sell_asset || !body.buy_asset || !body.sell_amount) {
     throw new AnchorError(400, "Faltan sell_asset, buy_asset o sell_amount.");
@@ -409,7 +409,7 @@ export async function openDeposit(req: Request) {
     eta: 30,
     fee_fixed: quote.feeTotal,
     instructions: {
-      bank_name: "Banco Goya (demo)",
+      bank_name: "Banco agenteStellar (demo)",
       bank_account_number: "000123456789",
       message:
         "Transfiere el monto en USD. El abono fiat es simulado; el envío de USDC en testnet es real.",

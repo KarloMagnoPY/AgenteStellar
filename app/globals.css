@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #14120e;
-  --foreground: #f3eee4;
-  --paper: #1e1b16;
-  --paper-2: #27231c;
-  --line: #3c352c;
-  --amber: #e4a15c;
-  --mint: #9dccb0;
-  --danger: #e07a62;
-  --muted: #b3a898;
+  --background: #06110c;
+  --foreground: #e8f7ef;
+  --paper: #0e1f17;
+  --paper-2: #153226;
+  --line: #24543c;
+  --accent: #3ee08f;
+  --mint: #b6ffd8;
+  --danger: #ff8d7a;
+  --muted: #8eae9c;
 }
 
 @theme inline {
@@ -18,7 +18,7 @@
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
   --color-line: var(--line);
-  --color-amber: var(--amber);
+  --color-accent: var(--accent);
   --color-mint: var(--mint);
   --color-danger: var(--danger);
   --color-muted: var(--muted);
@@ -26,71 +26,37 @@
   --font-display: var(--font-display);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
+  overscroll-behavior: none;
 }
 
 ::selection {
-  background: #e4a15c;
-  color: #1a140e;
+  background: #3ee08f;
+  color: #062014;
 }
 
-@keyframes goya-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.045);
-  }
+.glass {
+  background: linear-gradient(180deg, rgba(190, 255, 220, 0.16), rgba(8, 28, 18, 0.42));
+  border: 1px solid rgba(190, 255, 220, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 16px 40px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }
 
-@keyframes goya-listen {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-}
-
-@keyframes goya-ring {
-  0% {
-    transform: scale(0.86);
-    opacity: 0.55;
-  }
-  100% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
-}
-
-@keyframes goya-bar {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
-.goya-orb {
-  animation: goya-breathe 3.4s ease-in-out infinite;
-}
-
-.goya-orb-live {
-  animation: goya-listen 0.9s ease-in-out infinite;
-}
-
-.goya-ring {
-  animation: goya-ring 1.8s ease-out infinite;
-}
-
-.goya-bar {
-  transform-origin: center;
-  animation: goya-bar 0.9s ease-in-out infinite;
+.glass-user {
+  background: linear-gradient(180deg, rgba(62, 224, 143, 0.28), rgba(10, 40, 24, 0.45));
+  border: 1px solid rgba(182, 255, 216, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }

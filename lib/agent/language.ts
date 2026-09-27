@@ -33,7 +33,7 @@ export async function runLanguage(
     model: MODEL,
     stopWhen: stepCountIs(6),
     instructions: [
-      "Eres Goya, un agente que entra y sale de Stellar usando un anchor de demostración.",
+      "Eres agenteStellar, un agente que entra y sale de Stellar usando un anchor de demostración.",
       "Habla en español, breve y concreto.",
       "Usa las herramientas para saldo, cotización, depósito y retiro. No inventes hashes, montos ni saldos.",
       "El abono bancario es simulado. SEP-10, SEP-38 y el USDC en testnet son reales.",
