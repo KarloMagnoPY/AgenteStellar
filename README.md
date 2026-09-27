@@ -84,7 +84,29 @@ El motor es el AI SDK (`ToolLoopAgent`) con `anthropic/claude-sonnet-5` si hay `
 | Anchor | En vivo. Cotiza por SEP-38. No finge un fill y la comisión no multiplica la vida. |
 | Trading, lending, perpetuos, predicciones | Simulacro con reglas escritas en la propia tarjeta. El sorteo es determinista a partir del ciclo. No es Blend, ni un perp de mainnet, ni un mercado de predicciones real. |
 
-Esas cuatro mesas son el mapa. El día que el USDC sea de Circle y el anchor hable con Blend o con el DEX, el mismo ciclo puede dejar el simulacro y liquidar en la red.
+Esas cuatro mesas son el mapa. Los protocolos de abajo existen en mainnet y liquidan USDC de Circle. El USDC de esta demo lo emite el anchor local, así que hoy no entra en esos contratos.
+
+## Qué hay en Stellar para el ×100
+
+Cifras de [DefiLlama](https://api.llama.fi/v2/chains) y de la ficha de cada protocolo, leídas el 27 de septiembre de 2026. El TVL de la red ese día era de **$265.8 millones**. Ninguna de estas mesas paga un ×100 por depositar. Un 20 % anual tarda unos 25 años en convertir 5 en 500. El apalancamiento sí puede multiplicar un movimiento, y también puede liquidar el margen a cero.
+
+Para tocar cualquiera de estos contratos el activo tiene que ser el USDC de Circle: código `USDC`, emisor `GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN`, contrato Soroban `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`. Circle lo publica en [sus direcciones de contrato](https://developers.circle.com/stablecoins/usdc-contract-addresses) y en el [`stellar.toml` de Centre](https://centre.io/.well-known/stellar.toml). [Stellar Expert](https://stellar.expert/explorer/public/asset/USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN) muestra el mismo activo.
+
+| Qué puede hacer el agente | Quién | Dato en Stellar | Enlace |
+| --- | --- | --- | --- |
+| Prestar y pedir prestado. El rendimiento no hace el ×100; una liquidación sí puede borrar el colateral. | [Blend](https://www.blend.capital) | Pools V2: **$162.3 millones** depositados y **$43.7 millones** prestados | [DefiLlama](https://defillama.com/protocol/blend-pools-v2) |
+| Vaults de rendimiento para USDC y EURC, con API | [DeFindex](https://www.defindex.io/) (Palta Labs) | **$20.3 millones** | [DefiLlama](https://defillama.com/protocol/defindex) |
+| Asignar capital on-chain | [Upshift](https://app.upshift.finance) | **$30.0 millones** en Stellar, de un protocolo que también está en otras redes | [DefiLlama](https://defillama.com/protocol/upshift) |
+| Pedir USDC prestado contra XLM, CETES, deJAAA, deJTRSY o USTRY | [Templar](https://www.templarfi.org/) | **$13.5 millones** depositados y **$12.3 millones** prestados en Stellar. El resto de su TVL está en otras redes | [Contratos](https://docs.templarfi.org/guide/addresses.html) · [DefiLlama](https://defillama.com/protocol/templar-protocol) |
+| Cambiar al contado. Un swap sigue el precio; no multiplica la vida por sí solo | [Aquarius](https://aqua.network) | **$39.5 millones** de liquidez en el adaptador de DefiLlama. La propia web publica $52.79 millones bloqueados, $710.05 millones de volumen y $46.68 mil de recompensas AQUA al mes | [DefiLlama](https://defillama.com/protocol/aquarius-stellar) |
+| Cambiar al contado | [Sushi](https://sushi.com/) en Stellar | **$15.2 millones** | [DefiLlama](https://defillama.com/protocol/sushi-stellar) |
+| Libro de órdenes y pools nativos de la red | [SDEX](https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools) | **$16.8 millones** en el libro y **$9.5 millones** en los AMM | [Libro](https://defillama.com/protocol/stellar-dex) · [AMM](https://defillama.com/protocol/stellar-amm) |
+| AMM en Soroban y agregador | [Soroswap](https://soroswap.finance/) | **$1.24 millones** | [DefiLlama](https://defillama.com/protocol/soroswap) |
+| AMM en Soroban | [Phoenix](https://www.phoenix-hub.io/) | **$47 mil** | [DefiLlama](https://defillama.com/protocol/phoenix-defi-hub) |
+| Perpetuos con margen. Aquí sí cabe un múltiplo, y también la muerte de la vida | [Zenex](https://docs.zenex.trade/) | Documentación pública de perps en Soroban, liquidación por keepers y precio de Pyth Lazer. El ejemplo de la doc es **10x**: con eso, un movimiento del 10 % a favor duplica el margen y uno en contra puede liquidarlo. DefiLlama no publica TVL de Zenex | [Qué es Zenex](https://docs.zenex.trade/) |
+| Derivados listados, sin liquidez medida | [Normal](https://www.normalfinance.io/) | **$0** en la ficha de derivados | [DefiLlama](https://defillama.com/protocol/normal) |
+
+Blend, DeFindex, Upshift, Aquarius, Sushi, el SDEX y Soroswap son el camino para no morir: conservan o hacen crecer de a poco. Zenex es el camino del ×100, porque el margen amplifica el movimiento, y es también el camino a 0. Phoenix está en mainnet y su liquidez medida es pequeña. Un mercado de predicciones en USDC de Circle aparece en el repositorio [Moros](https://github.com/HoomanBuilds/moros) (`https://moros.fun`); DefiLlama no lo lista, así que no hay TVL que citar.
 
 ## Correrlo
 
