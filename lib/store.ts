@@ -43,6 +43,25 @@ export type TxRecord = {
   message?: string;
 };
 
+export type LifeDesk = "trading" | "lending" | "perps" | "predicciones" | "anchor";
+
+export type LifeLog = {
+  at: string;
+  desk: LifeDesk;
+  detail: string;
+  stake: string;
+  pnl: string;
+  balance: string;
+};
+
+export type LifeRecord = {
+  balance: string;
+  status: "alive" | "dead" | "ascended";
+  bornAt: string;
+  cycles: number;
+  log: LifeLog[];
+};
+
 export type State = {
   anchorSecret: string;
   userSecret: string;
@@ -51,11 +70,22 @@ export type State = {
   sessionExp: number;
   quotes: Record<string, QuoteRecord>;
   transactions: Record<string, TxRecord>;
+  life: LifeRecord;
 };
 
 const file = path.join(process.cwd(), ".data", "state.json");
 
 let queue: Promise<unknown> = Promise.resolve();
+
+function freshLife(): LifeRecord {
+  return {
+    balance: "5.00",
+    status: "alive",
+    bornAt: new Date().toISOString(),
+    cycles: 0,
+    log: [],
+  };
+}
 
 function createFresh(): State {
   return {
@@ -66,12 +96,15 @@ function createFresh(): State {
     sessionExp: 0,
     quotes: {},
     transactions: {},
+    life: freshLife(),
   };
 }
 
 function load(): State | null {
   if (!existsSync(file)) return null;
-  return JSON.parse(readFileSync(file, "utf8")) as State;
+  const state = JSON.parse(readFileSync(file, "utf8")) as State;
+  if (!state.life) state.life = freshLife();
+  return state;
 }
 
 function write(state: State) {

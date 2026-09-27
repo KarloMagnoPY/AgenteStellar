@@ -73,6 +73,19 @@ agenteStellar es el cajero de un anchor: una frase reemplaza la web del banco.
 
 El spread del on-ramp y del off-ramp es el negocio del anchor. En este prototipo el fiat no se cobra: sirve para enseñar el flujo. El ingreso visible es esa comisión del 1% aplicada en la cotización.
 
+## La vida
+
+Después de confirmar el passkey, la pantalla es la vida del agente. Nace con 5.00 y la meta es 500.00, un ×100. En 0 muere. Cada ciclo cobra 0.05.
+
+El motor es el AI SDK (`ToolLoopAgent`) con `anthropic/claude-sonnet-5` si hay `AI_GATEWAY_API_KEY` o `VERCEL_OIDC_TOKEN`. Sin clave, una política local elige la mesa: protege cuando la vida está baja y busca la cola gorda del trading cuando puede apuntar al ×100.
+
+| Mesa | Qué hace |
+| --- | --- |
+| Anchor | En vivo. Cotiza por SEP-38. No finge un fill y la comisión no multiplica la vida. |
+| Trading, lending, perpetuos, predicciones | Simulacro con reglas escritas en la propia tarjeta. El sorteo es determinista a partir del ciclo. No es Blend, ni un perp de mainnet, ni un mercado de predicciones real. |
+
+Esas cuatro mesas son el mapa. El día que el USDC sea de Circle y el anchor hable con Blend o con el DEX, el mismo ciclo puede dejar el simulacro y liquidar en la red.
+
 ## Correrlo
 
 ```bash

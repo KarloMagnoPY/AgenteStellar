@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { LifeScreen } from "@/components/life";
 import { ChatBubble, CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
 import { SignIn } from "@/components/sign-in";
-import { leaveSmartWallet, openSmartWallet, restoreSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
+import { leaveSmartWallet, openSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
+import type { LifeView } from "@/lib/life";
 import type { AgentResponse, PublicTransaction, Step, WalletView } from "@/lib/types";
 
 type ChatMessage = {
@@ -149,9 +151,17 @@ function money(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
-export function Console({ initialWallet }: { initialWallet: WalletView }) {
+export function Console({
+  initialWallet,
+  initialLife,
+}: {
+  initialWallet: WalletView;
+  initialLife: LifeView;
+}) {
   const [wallet, setWallet] = useState(initialWallet);
-  const [gate, setGate] = useState<"checking" | "out" | "in">("checking");
+  const [life, setLife] = useState(initialLife);
+  const [surface, setSurface] = useState<"vida" | "voz">("vida");
+  const [gate, setGate] = useState<"checking" | "out" | "in">("out");
   const [smartWallet, setSmartWallet] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -169,18 +179,7 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
   }, [messages, pending]);
 
   useEffect(() => {
-    let cancelled = false;
-    void restoreSmartWallet().then((contractId) => {
-      if (cancelled) return;
-      if (contractId) {
-        setSmartWallet(contractId);
-        setGate("in");
-        return;
-      }
-      setGate("out");
-    });
     return () => {
-      cancelled = true;
       recognitionRef.current?.stop();
       window.speechSynthesis?.cancel();
     };
@@ -345,6 +344,17 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
     return <SignIn checking={gate === "checking"} onEnter={enter} />;
   }
 
+  if (surface === "vida") {
+    return (
+      <LifeScreen
+        life={life}
+        onLife={setLife}
+        onTalk={() => setSurface("voz")}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   const phaseLabel =
     phase === "listening" ? "Escuchando" : phase === "thinking" ? "En testnet" : phase === "speaking" ? "Hablando" : "Listo";
   const quiet = messages.length === 0;
@@ -355,6 +365,9 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
           <p className="mt-1 text-xs text-muted">Agente de voz · testnet</p>
+          <button type="button" onClick={() => setSurface("vida")} className="mt-1 text-[10px] tracking-wide text-accent uppercase">
+            Volver a la vida
+          </button>
           {smartWallet ? (
             <a
               className="mt-1 block font-mono text-[10px] text-accent"
