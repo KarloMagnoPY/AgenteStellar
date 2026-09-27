@@ -1,5 +1,6 @@
 export type Intent =
   | { type: "help" }
+  | { type: "smart-wallet" }
   | { type: "balance" }
   | { type: "deposit"; amount: string }
   | { type: "withdraw"; amount: string }
@@ -20,6 +21,12 @@ function amountOf(text: string) {
 export function parseIntent(message: string): Intent {
   const text = normalize(message);
   const amount = amountOf(text);
+  if (
+    /smart\s*wallet|billetera inteligente|passkey/.test(text) ||
+    /crea(r|me)? (mi |la )?(cuenta|wallet|billetera)/.test(text)
+  ) {
+    return { type: "smart-wallet" };
+  }
   if (/saldo|balance|cuanto tengo/.test(text)) return { type: "balance" };
   if (/retira|saca|off-?ramp|vende/.test(text)) {
     return { type: "withdraw", amount: amount ?? "10" };
@@ -38,7 +45,7 @@ export function parseIntent(message: string): Intent {
 }
 
 export const helpReply = [
-  "Puedo entrar y salir de Stellar por el anchor de demostración.",
-  "Prueba con «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC» o «¿Cuál es mi saldo?».",
+  "Puedo crear tu smart wallet con un passkey, y entrar o salir de Stellar por el anchor de demostración.",
+  "Prueba con «Crea mi smart wallet», «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC» o «¿Cuál es mi saldo?».",
   "El abono bancario es simulado. La autenticación SEP-10, la cotización y el USDC en testnet son reales.",
 ].join(" ");

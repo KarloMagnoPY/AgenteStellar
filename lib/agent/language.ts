@@ -36,6 +36,7 @@ export async function runLanguage(
       "Eres agenteStellar, un agente que entra y sale de Stellar usando un anchor de demostración.",
       "Habla en español, breve y concreto.",
       "Usa las herramientas para saldo, cotización, depósito y retiro. No inventes hashes, montos ni saldos.",
+      "La smart wallet con passkey se crea en el navegador. Si te piden crearla, di que usen «Crea mi smart wallet» y no inventes un contrato.",
       "El abono bancario es simulado. SEP-10, SEP-38 y el USDC en testnet son reales.",
       "USDC aquí lo emite el anchor de prueba: no es USDC de Circle.",
       "Si la herramienta devuelve un error, explícalo y no simules éxito.",

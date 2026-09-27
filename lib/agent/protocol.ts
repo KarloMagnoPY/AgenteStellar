@@ -110,10 +110,13 @@ export async function runProtocol(
   const intent = parseIntent(message);
 
   try {
-    if (intent.type === "help") {
+    if (intent.type === "help" || intent.type === "smart-wallet") {
       return {
         mode: "protocol",
-        reply: helpReply,
+        reply:
+          intent.type === "smart-wallet"
+            ? "La smart wallet se crea en este navegador con un passkey. El servidor no puede registrar tu biometría: usa el botón «Crea mi smart wallet»."
+            : helpReply,
         steps,
         transaction,
         wallet: await walletView(),
@@ -185,7 +188,7 @@ async function execute(
   origin: string,
   token: string,
   network: Awaited<ReturnType<typeof ensureNetworkAccounts>>,
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" }>,
   steps: Step[],
 ) {
   if (intent.type === "quote") {
@@ -300,7 +303,7 @@ async function execute(
 }
 
 function replyFor(
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" }>,
   transaction: PublicTransaction | null,
   usdc: string,
   steps: Step[],

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChatBubble, CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
+import { openSmartWallet, restoreSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
 import type { AgentResponse, PublicTransaction, Step, WalletView } from "@/lib/types";
 
 type ChatMessage = {
@@ -10,6 +11,7 @@ type ChatMessage = {
   text: string;
   steps?: Step[];
   transaction?: AgentResponse["transaction"];
+  smartWallet?: SmartWalletReceipt;
   mode?: AgentResponse["mode"];
 };
 
@@ -40,7 +42,13 @@ type BrowserRecognition = {
 
 type RecognitionCtor = new () => BrowserRecognition;
 
-const PROMPTS = ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?"];
+const PROMPTS = [
+  "Crea mi smart wallet",
+  "Fondea 25 USD",
+  "Cotiza 100 USD",
+  "Retira 10 USDC",
+  "¿Cuál es mi saldo?",
+];
 
 function assetName(asset: string) {
   if (asset.startsWith("iso4217:")) return asset.slice("iso4217:".length);
@@ -94,6 +102,37 @@ function Receipt({ transaction }: { transaction: PublicTransaction }) {
   );
 }
 
+function SmartWalletCard({ wallet }: { wallet: SmartWalletReceipt }) {
+  const short = `${wallet.contractId.slice(0, 4)}…${wallet.contractId.slice(-4)}`;
+  return (
+    <a
+      className="mt-3 block rounded-2xl border border-white/20 bg-black/25 px-3 py-3"
+      href={wallet.explorerUrl}
+      target="_blank"
+      rel="noreferrer"
+    >
+      <p className="text-[10px] tracking-[0.18em] text-mint uppercase">Comprobante</p>
+      <p className="mt-1 text-sm text-foreground">
+        Smart wallet · {wallet.created ? "desplegada" : "ya existía"}
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <dt className="text-muted">Contrato</dt>
+          <dd className="font-mono text-[11px]">{short}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Firma</dt>
+          <dd>Passkey</dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs text-accent">Abrir en Stellar Expert</p>
+      {wallet.created && !wallet.funded ? (
+        <p className="mt-2 text-xs text-muted">El contrato quedó en testnet. Friendbot no acreditó XLM.</p>
+      ) : null}
+    </a>
+  );
+}
+
 const STATUS: Record<string, string> = {
   pending_user_transfer_start: "esperando fondos",
   pending_anchor: "el anchor procesa",
@@ -117,9 +156,11 @@ function money(value: string) {
 
 export function Console({ initialWallet }: { initialWallet: WalletView }) {
   const [wallet, setWallet] = useState(initialWallet);
+  const [smartWallet, setSmartWallet] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
+  const [pendingLabel, setPendingLabel] = useState("En testnet. La primera vez Friendbot tarda un poco.");
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [caption, setCaption] = useState("Pide un depósito, una cotización o un retiro.");
@@ -132,7 +173,12 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
   }, [messages, pending]);
 
   useEffect(() => {
+    let cancelled = false;
+    void restoreSmartWallet().then((contractId) => {
+      if (!cancelled && contractId) setSmartWallet(contractId);
+    });
     return () => {
+      cancelled = true;
       recognitionRef.current?.stop();
       window.speechSynthesis?.cancel();
     };
@@ -161,9 +207,38 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
     setDraft("");
     setError("");
     setPending(true);
+    setPendingLabel(
+      wantsSmartWallet(message)
+        ? "Confirma el passkey. Con eso se despliega tu smart wallet en testnet."
+        : "En testnet. La primera vez Friendbot tarda un poco.",
+    );
     setPhase("thinking");
     setCaption(message);
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", text: message }]);
+    if (wantsSmartWallet(message)) {
+      try {
+        const receipt = await openSmartWallet();
+        setSmartWallet(receipt.contractId);
+        const reply = receipt.created
+          ? `Listo. Tu smart wallet quedó desplegada en testnet con un passkey. Contrato ${receipt.contractId}.`
+          : `Tu smart wallet ya estaba en este navegador. Contrato ${receipt.contractId}.`;
+        setMessages((current) => [
+          ...current,
+          { id: crypto.randomUUID(), role: "assistant", text: reply, smartWallet: receipt },
+        ]);
+        setCaption(reply);
+        speak(reply);
+      } catch (reason) {
+        const messageText = reason instanceof Error ? reason.message : "No pude crear la smart wallet.";
+        setError(messageText);
+        setCaption(messageText);
+        setPhase("idle");
+      } finally {
+        pendingRef.current = false;
+        setPending(false);
+      }
+      return;
+    }
     try {
       const response = await fetch("/api/agent", {
         method: "POST",
@@ -245,6 +320,16 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
           <p className="mt-1 text-xs text-muted">Agente de voz · testnet</p>
+          {smartWallet ? (
+            <a
+              className="mt-1 block font-mono text-[10px] text-accent"
+              href={`https://stellar.expert/explorer/testnet/contract/${smartWallet}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Smart wallet {smartWallet.slice(0, 4)}…{smartWallet.slice(-4)}
+            </a>
+          ) : null}
         </div>
         <a
           className="rounded-2xl bg-paper px-3 py-2 text-right"
@@ -288,6 +373,7 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
                     </ol>
                   ) : null}
                   {message.transaction ? <Receipt transaction={message.transaction} /> : null}
+                  {message.smartWallet ? <SmartWalletCard wallet={message.smartWallet} /> : null}
                 </div>
               </ChatBubble>
             ))}
@@ -296,7 +382,7 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
                 <p className="mb-1 text-[10px] tracking-wide text-muted uppercase">agenteStellar</p>
                 <div className="glass flex items-center gap-3 rounded-3xl rounded-bl-md px-4 py-3">
                   <DotsLoader />
-                  <p className="text-xs text-muted">En testnet. La primera vez Friendbot tarda un poco.</p>
+                  <p className="text-xs text-muted">{pendingLabel}</p>
                 </div>
               </ChatBubble>
             ) : null}

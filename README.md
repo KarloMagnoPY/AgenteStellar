@@ -18,6 +18,8 @@ El USDC lo emite ese anchor. No es USDC de Circle. El abono bancario es una simu
 | Horizon testnet | Envío y lectura de transacciones |
 | AI SDK 7 (`ToolLoopAgent`) | Agente de lenguaje, solo si hay clave de AI Gateway |
 | Zod 4 | Esquema de las herramientas del modelo |
+| [smart-account-kit](https://github.com/stellar/smart-account-kit) 0.8 | Smart wallet con passkey (WebAuthn) en testnet |
+| Relayer público de testnet | Paga el fee al desplegar la smart wallet |
 
 El modelo por defecto, si configuras `AI_GATEWAY_API_KEY` o `VERCEL_OIDC_TOKEN`, es `anthropic/claude-sonnet-5`. Se cambia con `GOYA_MODEL`. Sin clave, el agente de protocolo resuelve las órdenes conocidas y no llama a ningún modelo.
 
@@ -45,8 +47,11 @@ Agente de protocolo ──o── Agente de lenguaje (AI Gateway)
 
 Hay dos cuentas de testnet, creadas en esta máquina y guardadas en `.data/state.json` (no se sube a git):
 
-- **Agente.** Firma el challenge SEP-10, abre la trustline y, en un retiro, envía el USDC.
+- **Agente.** Cuenta clásica (`G…`). Firma el challenge SEP-10, abre la trustline y, en un retiro, envía el USDC.
 - **Anchor.** Publica el `stellar.toml`, cotiza, y emite o quema el USDC.
+- **Smart wallet.** Cuenta de contrato (`C…`) que el navegador despliega cuando dices «Crea mi smart wallet». El firmante es un passkey de este dispositivo, el mismo modelo que [smart-account-kit](https://github.com/stellar/smart-account-kit). El [demo de smart wallet](https://github.com/stellar/smart-wallet-demo-app) de Stellar ya no se mantiene y pide Docker, SDP y un backend aparte; por eso la cuenta nueva usa el kit oficial y no ese monorepo.
+
+El anchor sigue hablando SEP-10 con la cuenta clásica. Una smart wallet se autentica con SEP-45, que este demo todavía no implementa. El USDC de demostración vive en la cuenta del agente. El comprobante de la smart wallet abre el despliegue en Stellar Expert.
 
 Un depósito recorre descubrimiento, autenticación, cotización y SEP-6. El endpoint de demostración marca el USD como recibido y el anchor crea los tokens con un pago desde su cuenta emisora. Un retiro hace el camino inverso: el agente paga al emisor (el activo se quema) y el anchor confirma el hash en Horizon. El mensaje del chat muestra ese hash como comprobante y abre la transacción en Stellar Expert.
 
@@ -77,9 +82,19 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000). La primera orden tarda porque Friendbot crea las dos cuentas y la trustline.
 
+## Qué más puede hacer
+
+Hoy el agente cotiza, deposita, retira y crea la smart wallet. Encima de eso, sin cambiar el negocio del 1 %, caben estas piezas:
+
+- Que el anchor acepte la smart wallet con SEP-45, para que el passkey firme el depósito y el retiro.
+- Políticas del propio contrato: límite de gasto y un segundo firmante de recuperación.
+- Enviar USDC de demostración a otra cuenta y mostrar ese pago como comprobante.
+- KYC del cliente (SEP-12) cuando el fiat deje de ser una simulación.
+
 ## Guion de demo
 
-1. «Fondea 25 USD». El comprobante del mensaje queda en completada y el saldo baja la comisión.
-2. Toca el comprobante y ábrelo en Stellar Expert.
-3. «Retira 10 USDC». El agente envía el activo al emisor y el anchor verifica el pago.
-4. Muestra `/.well-known/stellar.toml` para el descubrimiento del anchor.
+1. «Crea mi smart wallet». El navegador pide un passkey y el comprobante abre el contrato en Stellar Expert.
+2. «Fondea 25 USD». El comprobante del mensaje queda en completada y el saldo baja la comisión.
+3. Toca el comprobante y ábrelo en Stellar Expert.
+4. «Retira 10 USDC». El agente envía el activo al emisor y el anchor verifica el pago.
+5. Muestra `/.well-known/stellar.toml` para el descubrimiento del anchor.
