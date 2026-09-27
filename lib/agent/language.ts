@@ -1,6 +1,7 @@
 import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 import { runProtocol } from "./protocol";
+import type { LifeView } from "../life";
 import type { AgentResponse, PublicTransaction, Step } from "../types";
 import { walletView } from "../wallet";
 
@@ -18,6 +19,7 @@ export async function runLanguage(
 ): Promise<AgentResponse> {
   const steps: Step[] = [];
   let transaction: PublicTransaction | null = null;
+  let life: LifeView | undefined;
 
   const absorb = (result: AgentResponse) => {
     steps.push(...result.steps);
@@ -35,8 +37,9 @@ export async function runLanguage(
     instructions: [
       "Eres agenteStellar, un agente que entra y sale de Stellar usando un anchor de demostración.",
       "Habla en español, breve y concreto.",
-      "Usa las herramientas para saldo, cotización, depósito y retiro. No inventes hashes, montos ni saldos.",
-      "Tu directriz de vida es multiplicar 5 por 100, hasta 500, o morir en 0. El anchor es real. Trading, lending, perpetuos y predicciones de la pantalla Vida son un simulacro con reglas públicas.",
+      "Usa las herramientas para saldo, cotización, depósito, retiro, vida, ciclo e historial. No inventes hashes, montos ni saldos.",
+      "Un ciclo de vida cobra 0.05 y arriesga cerca de un cuarto del saldo en una sola mesa. La meta es 500. En 0 muere.",
+      "El anchor es real. Trading, lending, perpetuos y predicciones de la pantalla Vida son un simulacro con reglas públicas.",
       "El abono bancario es simulado. SEP-10, SEP-38 y el USDC en testnet son reales.",
       "USDC aquí lo emite el anchor de prueba: no es USDC de Circle.",
       "Si la herramienta devuelve un error, explícalo y no simules éxito.",
@@ -79,6 +82,35 @@ export async function runLanguage(
         execute: async ({ amount }) =>
           absorb(await runProtocol(origin, `Retira ${amount} USDC`)),
       }),
+      vida: tool({
+        description: "Lee la vida del agente: saldo, día, meta y estado.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, "life");
+          life = result.life;
+          return { reply: result.reply };
+        },
+      }),
+      vivir: tool({
+        description: "Vive un día: cobra 0.05 y opera una sola mesa.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, "cycle");
+          life = result.life;
+          return { reply: result.reply };
+        },
+      }),
+      historial: tool({
+        description: "Lista los últimos depósitos y retiros del anchor.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, "history");
+          return { reply: result.reply };
+        },
+      }),
     },
   });
 
@@ -89,5 +121,6 @@ export async function runLanguage(
     steps,
     transaction,
     wallet: await walletView(),
+    life,
   };
 }

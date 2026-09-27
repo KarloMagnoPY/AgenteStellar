@@ -3,7 +3,10 @@ import { z } from "zod";
 import { hasLanguageModel } from "./agent/language";
 import { runProtocol } from "./agent/protocol";
 import { fromCents, toCents } from "./money";
+import { daySentence } from "./life-copy";
 import { getState, updateState, type LifeDesk, type LifeLog, type LifeRecord } from "./store";
+
+export { daySentence };
 
 export const LIFE_START = "5.00";
 export const LIFE_TARGET = "500.00";
@@ -67,6 +70,12 @@ function publicLife(life: LifeRecord, motor: LifeView["motor"]): LifeView {
       })),
     ],
   };
+}
+
+export function lifeReply(life: LifeView): string {
+  const estado =
+    life.status === "dead" ? "Murió." : life.status === "ascended" ? "Llegó al ×100." : "Sigue vivo.";
+  return `${estado} Lleva ${life.balance} de ${life.target} (${life.multiple}×, la meta es 100×) y va por el día ${life.cycles}. Cada día cobra 0.05 y arriesga cerca de un cuarto del saldo en una sola mesa.`;
 }
 
 export async function lifeView(): Promise<LifeView> {

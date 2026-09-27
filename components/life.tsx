@@ -2,12 +2,27 @@
 
 import { useState } from "react";
 import { CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
+import { daySentence } from "@/lib/life-copy";
 import type { LifeView } from "@/lib/life";
 
 function money(value: string) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 }
+
+const STEPS = [
+  "Cobra 0.05 por seguir vivo.",
+  "Elige una sola mesa y arriesga cerca de un cuarto del saldo.",
+  "Ese resultado se suma o se resta. En 0 muere. En 500 llega.",
+];
+
+const LEGEND = [
+  { name: "Anchor", note: "En la red. Solo cotiza. El día cobra 0.05." },
+  { name: "Trading", note: "Práctica. Puede perder la puesta o multiplicarla." },
+  { name: "Préstamo", note: "Práctica. Casi siempre deja un interés chico." },
+  { name: "Perpetuos", note: "Práctica. Gana o pierde el doble de la puesta." },
+  { name: "Predicciones", note: "Práctica. Duplica la puesta o la pierde." },
+];
 
 export function LifeScreen({
   life,
@@ -22,10 +37,14 @@ export function LifeScreen({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const progress = Math.min(100, (money(life.balance) / money(life.target)) * 100);
+  const balance = money(life.balance);
+  const left = Math.max(0, money(life.target) - balance);
+  const progress = Math.min(100, (balance / money(life.target)) * 100);
   const dead = life.status === "dead";
   const ascended = life.status === "ascended";
   const phase = pending ? "thinking" : dead ? "idle" : "speaking";
+  const latest = life.log[0];
+  const older = life.log.slice(1, 4);
 
   async function act(action: "cycle" | "reset") {
     if (pending) return;
@@ -52,15 +71,15 @@ export function LifeScreen({
       <header className="flex items-start justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
-          <p className="mt-1 text-xs tracking-[0.16em] text-muted uppercase">Vida · web4 · testnet</p>
+          <p className="mt-1 text-xs text-muted">La vida del agente</p>
           <button type="button" onClick={onSignOut} className="mt-1 text-[10px] tracking-wide text-muted uppercase">
             Cerrar sesión
           </button>
         </div>
         <div className="rounded-2xl bg-paper px-3 py-2 text-right">
-          <span className="block font-display text-xl leading-none">×{life.multiple}</span>
+          <span className="block font-display text-xl leading-none">Día {life.cycles}</span>
           <span className="mt-1 block text-[10px] tracking-wide text-muted uppercase">
-            {dead ? "muerto" : ascended ? "×100" : "vivo"}
+            {dead ? "murió" : ascended ? "llegó" : "vivo"}
           </span>
         </div>
       </header>
@@ -69,48 +88,63 @@ export function LifeScreen({
         <div className="flex flex-col items-center text-center">
           <VoiceOrb phase={phase} />
           <p className="mt-2 font-display text-5xl leading-none">
-            <CountUp value={money(life.balance)} />
+            <CountUp value={balance} />
           </p>
-          <p className="mt-2 text-xs text-muted">de {life.start} a {life.target}</p>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-paper-2">
+          <p className="mt-2 text-sm text-muted">
+            Nació con {life.start}. La meta es {life.target}. Lleva {life.multiple}× de 100×.
+          </p>
+          <p className="mt-1 text-sm">Faltan {left.toFixed(2)} para llegar.</p>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-paper-2" aria-hidden>
             <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
           </div>
-          <p className="glass mt-4 rounded-3xl px-4 py-3 text-sm leading-6">
-            Multiplica los 5 por 100. Cada ciclo cobra 0.05. En 0, el agente muere.
-          </p>
         </div>
 
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-          {life.desks.map((desk) => (
-            <div key={desk.id} className="glass w-40 shrink-0 rounded-2xl px-3 py-2">
-              <p className="text-xs text-accent">{desk.live ? "En vivo" : "Simulacro"}</p>
-              <p className="mt-1 text-sm">{desk.label}</p>
-              <p className="mt-1 text-[11px] leading-4 text-muted">{desk.rule}</p>
-            </div>
-          ))}
-        </div>
-
-        <ol className="mt-4 space-y-2">
-          {life.log.length === 0 ? (
-            <li className="text-sm text-muted">Todavía no actúa. El primer ciclo lo despierta.</li>
-          ) : (
-            life.log.map((entry) => (
-              <li key={entry.at} className="glass rounded-2xl px-3 py-2">
-                <p className="text-[10px] tracking-wide text-mint uppercase">{entry.desk}</p>
-                <p className="mt-1 text-sm leading-5">{entry.detail}</p>
-                <p className="mt-1 text-xs text-muted">
-                  {entry.pnl} · vida {entry.balance}
-                </p>
+        <section className="glass mt-4 rounded-3xl px-4 py-3">
+          <p className="text-[10px] tracking-[0.16em] text-mint uppercase">Un día hace esto</p>
+          <ol className="mt-2 space-y-2">
+            {STEPS.map((step, index) => (
+              <li key={step} className="flex gap-3 text-sm leading-5">
+                <span className="font-display text-accent">{index + 1}</span>
+                <span>{step}</span>
               </li>
-            ))
+            ))}
+          </ol>
+        </section>
+
+        <section className="mt-4">
+          <p className="text-[10px] tracking-[0.16em] text-muted uppercase">Hoy</p>
+          {latest ? (
+            <p className="glass mt-2 rounded-3xl px-4 py-3 text-sm leading-6">{daySentence(latest)}</p>
+          ) : (
+            <p className="glass mt-2 rounded-3xl px-4 py-3 text-sm leading-6 text-muted">
+              Todavía no ha vivido un día. El botón de abajo lo despierta.
+            </p>
           )}
-        </ol>
+          {older.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {older.map((entry) => (
+                <li key={entry.at} className="text-xs leading-5 text-muted">
+                  {daySentence(entry)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
+        <section className="mt-4">
+          <p className="text-[10px] tracking-[0.16em] text-muted uppercase">Mesas</p>
+          <ul className="mt-2 space-y-2">
+            {LEGEND.map((desk) => (
+              <li key={desk.name} className="flex gap-3 text-sm leading-5">
+                <span className="w-24 shrink-0 text-accent">{desk.name}</span>
+                <span className="text-muted">{desk.note}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
 
       <footer className="px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <p className="mb-2 text-center text-[10px] tracking-[0.16em] text-muted uppercase">
-          Motor {life.motor === "lenguaje" ? "AI SDK · Claude" : "política local"}
-        </p>
         {dead || ascended ? (
           <button
             type="button"
@@ -118,7 +152,7 @@ export function LifeScreen({
             onClick={() => void act("reset")}
             className="w-full rounded-full bg-accent py-4 text-base font-medium text-background disabled:opacity-50"
           >
-            {ascended ? "Otra vida" : "Reencarnar"}
+            {ascended ? "Empezar otra vida" : "Nacer de nuevo"}
           </button>
         ) : (
           <button
@@ -128,7 +162,7 @@ export function LifeScreen({
             className="flex w-full items-center justify-center gap-3 rounded-full bg-accent py-4 text-base font-medium text-background disabled:opacity-50"
           >
             {pending ? <DotsLoader /> : null}
-            {pending ? "Está operando" : "Ciclo de vida"}
+            {pending ? "Viviendo el día" : "Vivir un día"}
           </button>
         )}
         <button type="button" onClick={onTalk} className="glass mt-3 w-full rounded-full py-3 text-sm">

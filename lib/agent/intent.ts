@@ -2,6 +2,9 @@ export type Intent =
   | { type: "help" }
   | { type: "smart-wallet" }
   | { type: "balance" }
+  | { type: "life" }
+  | { type: "cycle" }
+  | { type: "history" }
   | { type: "deposit"; amount: string }
   | { type: "withdraw"; amount: string }
   | { type: "quote"; direction: "deposit" | "withdraw"; amount: string };
@@ -27,6 +30,15 @@ export function parseIntent(message: string): Intent {
   ) {
     return { type: "smart-wallet" };
   }
+  if (/vive un (ciclo|dia)|vivir un (ciclo|dia)|otro dia|avanza(r)? la vida/.test(text)) {
+    return { type: "cycle" };
+  }
+  if (/como va (la |mi |tu )?vida|estado de (la )?vida|cuanto le queda/.test(text)) {
+    return { type: "life" };
+  }
+  if (/historial|movimientos|que he hecho|ultimas transacciones/.test(text)) {
+    return { type: "history" };
+  }
   if (/saldo|balance|cuanto tengo/.test(text)) return { type: "balance" };
   if (/retira|saca|off-?ramp|vende/.test(text)) {
     return { type: "withdraw", amount: amount ?? "10" };
@@ -45,7 +57,8 @@ export function parseIntent(message: string): Intent {
 }
 
 export const helpReply = [
-  "Puedo entrar y salir de Stellar por el anchor de demostración. Tu smart wallet se crea al iniciar sesión, con un passkey.",
-  "Prueba con «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC» o «¿Cuál es mi saldo?».",
-  "El abono bancario es simulado. La autenticación SEP-10, la cotización y el USDC en testnet son reales.",
+  "Puedo mover USDC de prueba por el anchor y también vivir un día de la vida.",
+  "Dinero: «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC», «¿Cuál es mi saldo?», «¿Qué he hecho?».",
+  "Vida: «¿Cómo va la vida?» y «Vive un ciclo». Un ciclo cobra 0.05 y arriesga una sola mesa.",
+  "El abono bancario es simulado. SEP-10, la cotización y el USDC en testnet son reales.",
 ].join(" ");

@@ -1,3 +1,5 @@
+import type { LifeView } from "./life";
+
 export type Step = {
   sep: "SEP-1" | "SEP-10" | "SEP-38" | "SEP-6" | "Red";
   title: string;
@@ -31,4 +33,5 @@ export type AgentResponse = {
   steps: Step[];
   transaction: PublicTransaction | null;
   wallet: WalletView;
+  life?: LifeView;
 };

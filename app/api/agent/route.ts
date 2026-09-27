@@ -1,3 +1,4 @@
+import { answerAside } from "@/lib/agent/aside";
 import { hasLanguageModel, runLanguage } from "@/lib/agent/language";
 import { parseIntent } from "@/lib/agent/intent";
 import { runProtocol } from "@/lib/agent/protocol";
@@ -14,6 +15,9 @@ export async function POST(req: Request) {
 
   const origin = new URL(req.url).origin;
   const intent = parseIntent(message);
+  if (intent.type === "life" || intent.type === "cycle" || intent.type === "history") {
+    return json(await answerAside(origin, intent.type));
+  }
   if (intent.type === "help" && hasLanguageModel()) {
     try {
       return json(await runLanguage(origin, message));

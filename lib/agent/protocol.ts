@@ -158,6 +158,10 @@ export async function runProtocol(
       };
     }
 
+    if (intent.type === "life" || intent.type === "cycle" || intent.type === "history") {
+      throw new Error("Esa orden se responde antes de hablar con el anchor.");
+    }
+
     const token = await authenticate(origin, steps);
     transaction = await execute(origin, token, network, intent, steps);
 
@@ -188,7 +192,7 @@ async function execute(
   origin: string,
   token: string,
   network: Awaited<ReturnType<typeof ensureNetworkAccounts>>,
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" }>,
   steps: Step[],
 ) {
   if (intent.type === "quote") {
@@ -303,7 +307,7 @@ async function execute(
 }
 
 function replyFor(
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" }>,
   transaction: PublicTransaction | null,
   usdc: string,
   steps: Step[],

@@ -45,7 +45,10 @@ type BrowserRecognition = {
 
 type RecognitionCtor = new () => BrowserRecognition;
 
-const PROMPTS = ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?"];
+const PROMPT_GROUPS = [
+  { label: "Dinero", prompts: ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?", "¿Qué he hecho?"] },
+  { label: "Vida", prompts: ["¿Cómo va la vida?", "Vive un ciclo"] },
+];
 
 function assetName(asset: string) {
   if (asset.startsWith("iso4217:")) return asset.slice("iso4217:".length);
@@ -169,7 +172,7 @@ export function Console({
   const [pendingLabel, setPendingLabel] = useState("En testnet. La primera vez Friendbot tarda un poco.");
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
-  const [caption, setCaption] = useState("Pide un depósito, una cotización o un retiro.");
+  const [caption, setCaption] = useState("Puedo mover USDC de prueba o vivir un día.");
   const scroller = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<BrowserRecognition | null>(null);
   const pendingRef = useRef(false);
@@ -249,6 +252,7 @@ export function Console({
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "El agente falló.");
       if (data.wallet) setWallet(data.wallet);
+      if (data.life) setLife(data.life);
       setMessages((current) => [
         ...current,
         {
@@ -324,7 +328,7 @@ export function Console({
         smartWallet: receipt,
       },
     ]);
-    setCaption("Pide un depósito, una cotización o un retiro.");
+    setCaption("Puedo mover USDC de prueba o vivir un día.");
     setGate("in");
   }
 
@@ -459,17 +463,24 @@ export function Console({
             {phase === "listening" ? "···" : "Hablar"}
           </button>
         </div>
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-          {PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              disabled={pending}
-              onClick={() => void send(prompt)}
-              className="shrink-0 rounded-full border border-line px-3 py-2 text-xs text-muted disabled:opacity-50"
-            >
-              {prompt}
-            </button>
+        <div className="mt-4 space-y-2">
+          {PROMPT_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="mb-1 text-[10px] tracking-[0.16em] text-muted uppercase">{group.label}</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+                {group.prompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void send(prompt)}
+                    className="shrink-0 rounded-full border border-line px-3 py-2 text-xs text-muted disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <form
