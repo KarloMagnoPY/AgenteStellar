@@ -39,15 +39,15 @@ export function SignIn({
         <p className="mt-3 max-w-[18rem] text-sm leading-6 text-muted">
           {checking
             ? "Buscando la smart wallet de este dispositivo."
-            : "Iniciar sesión crea tu smart wallet en testnet. El teléfono la firma. No hay contraseña ni frase semilla."}
+            : "Si este dispositivo ya tiene un passkey, se usa ese. Solo se crea uno la primera vez, y no hay contraseña."}
         </p>
         {busy ? (
           <div className="glass mt-6 flex items-center gap-3 rounded-full px-4 py-3">
             <DotsLoader />
             <p className="text-left text-xs text-muted">
               {busy === "create"
-                ? "Confirma el passkey. Con eso se despliega la cuenta."
-                : "Elige el passkey de agenteStellar."}
+                ? "Busco el passkey de este dispositivo. Si la cuenta no está en testnet, la despliego con ese mismo."
+                : "Elige el passkey de agenteStellar. No voy a crear otro."}
             </p>
           </div>
         ) : null}

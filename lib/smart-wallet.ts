@@ -52,11 +52,82 @@ async function kit() {
   return kitPromise;
 }
 
+function readable(error: unknown) {
+  const name = error instanceof Error ? error.name : "";
+  const message = error instanceof Error ? error.message : "No pude iniciar sesión.";
+  if (message.includes("may not have been deployed")) {
+    return "El passkey está en el dispositivo, pero la cuenta todavía no está en testnet.";
+  }
+  if (name === "NotAllowedError") {
+    return "Cancelaste el passkey. No creé otra cuenta.";
+  }
+  return message;
+}
+
+function missingContract(error: unknown) {
+  return error instanceof Error && error.message.includes("may not have been deployed");
+}
+
+function credentialIdFrom(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  return message.match(/credential ([A-Za-z0-9_-]+)/)?.[1] ?? null;
+}
+
+function existingReceipt(contractId: string): SmartWalletReceipt {
+  return {
+    contractId,
+    created: false,
+    funded: true,
+    explorerUrl: explorer(contractId),
+  };
+}
+
+async function connectQuiet(current: SmartAccountKit, credentialId?: string) {
+  try {
+    const session = credentialId
+      ? await current.connectWallet({ credentialId })
+      : await current.connectWallet();
+    return session?.contractId ?? null;
+  } catch (error) {
+    if (missingContract(error)) return null;
+    throw error;
+  }
+}
+
+async function deployStored(current: SmartAccountKit, credentialId: string): Promise<SmartWalletReceipt> {
+  const deployed = await current.credentials.deploy(credentialId, { autoSubmit: true });
+  if (!deployed.submitResult?.success) {
+    const reason = deployed.submitResult?.error.message ?? "No pude desplegar la smart wallet de este passkey.";
+    throw new Error(reason);
+  }
+  const contractId = await connectQuiet(current, credentialId);
+  if (!contractId) {
+    throw new Error("La cuenta se desplegó, pero no pude abrir la sesión.");
+  }
+  const fund = await current.fundWallet(NATIVE_TOKEN).catch(() => null);
+  return {
+    contractId,
+    created: true,
+    funded: fund?.success === true,
+    hash: deployed.submitResult.hash,
+    explorerUrl: explorer(contractId, deployed.submitResult.hash),
+  };
+}
+
+async function resumeStored(current: SmartAccountKit) {
+  const stored = [...(await current.credentials.getAll())].sort((a, b) => b.createdAt - a.createdAt);
+  if (stored.length === 0) return null;
+  for (const credential of stored) {
+    const contractId = await connectQuiet(current, credential.credentialId);
+    if (contractId) return existingReceipt(contractId);
+  }
+  return deployStored(current, stored[0].credentialId);
+}
+
 export async function restoreSmartWallet() {
   try {
     const current = await kit();
-    const session = await current.connectWallet();
-    return session?.contractId ?? null;
+    return await connectQuiet(current);
   } catch {
     return null;
   }
@@ -64,16 +135,23 @@ export async function restoreSmartWallet() {
 
 export async function connectSmartWallet(): Promise<SmartWalletReceipt> {
   const current = await kit();
-  const session = await current.connectWallet({ prompt: true });
-  if (!session?.contractId) {
-    throw new Error("No encontré un passkey de agenteStellar en este dispositivo.");
+  const resumed = await resumeStored(current);
+  if (resumed) return resumed;
+  try {
+    const session = await current.connectWallet({ prompt: true });
+    if (!session?.contractId) {
+      throw new Error("No encontré un passkey de agenteStellar en este dispositivo.");
+    }
+    return existingReceipt(session.contractId);
+  } catch (error) {
+    if (missingContract(error)) {
+      const id = credentialIdFrom(error);
+      const known = id ? (await current.credentials.getAll()).some((item) => item.credentialId === id) : false;
+      if (id && known) return deployStored(current, id);
+      throw new Error("Ese passkey no tiene la cuenta en testnet y no creé otro.");
+    }
+    throw new Error(readable(error));
   }
-  return {
-    contractId: session.contractId,
-    created: false,
-    funded: true,
-    explorerUrl: explorer(session.contractId),
-  };
 }
 
 export async function leaveSmartWallet() {
@@ -83,15 +161,10 @@ export async function leaveSmartWallet() {
 
 export async function openSmartWallet(): Promise<SmartWalletReceipt> {
   const current = await kit();
-  const existing = await current.connectWallet();
-  if (existing?.contractId) {
-    return {
-      contractId: existing.contractId,
-      created: false,
-      funded: true,
-      explorerUrl: explorer(existing.contractId),
-    };
-  }
+  const silent = await connectQuiet(current);
+  if (silent) return existingReceipt(silent);
+  const resumed = await resumeStored(current);
+  if (resumed) return resumed;
 
   const created = await current.createWallet("agenteStellar", "usuario", {
     autoSubmit: true,

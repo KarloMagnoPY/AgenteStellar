@@ -93,7 +93,7 @@ Hoy el agente cotiza, deposita, retira y crea la smart wallet. Encima de eso, si
 
 ## Guion de demo
 
-1. En la pantalla de inicio, pulsa «Iniciar sesión». El navegador pide un passkey, despliega la smart wallet y el chat abre con el comprobante.
+1. En la pantalla de inicio, pulsa «Iniciar sesión». Si el dispositivo ya tiene un passkey, se reutiliza y se despliega la cuenta si todavía no está en testnet. Solo la primera vez se crea un passkey nuevo.
 2. «Fondea 25 USD». El comprobante del mensaje queda en completada y el saldo baja la comisión.
 3. Toca el comprobante y ábrelo en Stellar Expert.
 4. «Retira 10 USDC». El agente envía el activo al emisor y el anchor verifica el pago.
