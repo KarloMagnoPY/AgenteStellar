@@ -13,7 +13,7 @@ El USDC lo emite ese anchor. No es USDC de Circle. El abono bancario es una simu
 | Tailwind CSS 4 | Estilos y layout móvil |
 | anime.js 4 | Orbe de voz, conteo de saldos, entrada del chat y loader |
 | Web Speech API | Reconocimiento `es-MX` y lectura de la respuesta |
-| `@stellar/stellar-sdk` 17 | Cuentas, SEP-10, trustline, pagos y Horizon |
+| `@stellar/stellar-sdk` 16.3 | Cuentas, SEP-10, trustline, pagos y Horizon. El smart-account-kit exige esta versión: en la 17 `rootInvocation` dejó de ser una función y el despliegue de la smart wallet falla. |
 | Friendbot de testnet | XLM para crear las cuentas |
 | Horizon testnet | Envío y lectura de transacciones |
 | AI SDK 7 (`ToolLoopAgent`) | Agente de lenguaje, solo si hay clave de AI Gateway |
