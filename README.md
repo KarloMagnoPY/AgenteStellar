@@ -49,7 +49,7 @@ Hay dos cuentas de testnet, creadas en esta máquina y guardadas en `.data/state
 
 - **Agente.** Cuenta clásica (`G…`). Firma el challenge SEP-10, abre la trustline y, en un retiro, envía el USDC.
 - **Anchor.** Publica el `stellar.toml`, cotiza, y emite o quema el USDC.
-- **Smart wallet.** Cuenta de contrato (`C…`) que el navegador despliega cuando dices «Crea mi smart wallet». El firmante es un passkey de este dispositivo, el mismo modelo que [smart-account-kit](https://github.com/stellar/smart-account-kit). El [demo de smart wallet](https://github.com/stellar/smart-wallet-demo-app) de Stellar ya no se mantiene y pide Docker, SDP y un backend aparte; por eso la cuenta nueva usa el kit oficial y no ese monorepo.
+- **Smart wallet.** Cuenta de contrato (`C…`) que se despliega en la pantalla de inicio de sesión. El firmante es un passkey de este dispositivo, el mismo modelo que [smart-account-kit](https://github.com/stellar/smart-account-kit). El [demo de smart wallet](https://github.com/stellar/smart-wallet-demo-app) de Stellar ya no se mantiene y pide Docker, SDP y un backend aparte; por eso la cuenta nueva usa el kit oficial y no ese monorepo.
 
 El anchor sigue hablando SEP-10 con la cuenta clásica. Una smart wallet se autentica con SEP-45, que este demo todavía no implementa. El USDC de demostración vive en la cuenta del agente. El comprobante de la smart wallet abre el despliegue en Stellar Expert.
 
@@ -93,7 +93,7 @@ Hoy el agente cotiza, deposita, retira y crea la smart wallet. Encima de eso, si
 
 ## Guion de demo
 
-1. «Crea mi smart wallet». El navegador pide un passkey y el comprobante abre el contrato en Stellar Expert.
+1. En la pantalla de inicio, pulsa «Iniciar sesión». El navegador pide un passkey, despliega la smart wallet y el chat abre con el comprobante.
 2. «Fondea 25 USD». El comprobante del mensaje queda en completada y el saldo baja la comisión.
 3. Toca el comprobante y ábrelo en Stellar Expert.
 4. «Retira 10 USDC». El agente envía el activo al emisor y el anchor verifica el pago.

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChatBubble, CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
-import { openSmartWallet, restoreSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
+import { SignIn } from "@/components/sign-in";
+import { leaveSmartWallet, openSmartWallet, restoreSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
 import type { AgentResponse, PublicTransaction, Step, WalletView } from "@/lib/types";
 
 type ChatMessage = {
@@ -42,13 +43,7 @@ type BrowserRecognition = {
 
 type RecognitionCtor = new () => BrowserRecognition;
 
-const PROMPTS = [
-  "Crea mi smart wallet",
-  "Fondea 25 USD",
-  "Cotiza 100 USD",
-  "Retira 10 USDC",
-  "¿Cuál es mi saldo?",
-];
+const PROMPTS = ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?"];
 
 function assetName(asset: string) {
   if (asset.startsWith("iso4217:")) return asset.slice("iso4217:".length);
@@ -156,6 +151,7 @@ function money(value: string) {
 
 export function Console({ initialWallet }: { initialWallet: WalletView }) {
   const [wallet, setWallet] = useState(initialWallet);
+  const [gate, setGate] = useState<"checking" | "out" | "in">("checking");
   const [smartWallet, setSmartWallet] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -175,7 +171,13 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
   useEffect(() => {
     let cancelled = false;
     void restoreSmartWallet().then((contractId) => {
-      if (!cancelled && contractId) setSmartWallet(contractId);
+      if (cancelled) return;
+      if (contractId) {
+        setSmartWallet(contractId);
+        setGate("in");
+        return;
+      }
+      setGate("out");
     });
     return () => {
       cancelled = true;
@@ -310,6 +312,39 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
     recognition.start();
   }
 
+  function enter(receipt: SmartWalletReceipt) {
+    setSmartWallet(receipt.contractId);
+    setError("");
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: receipt.created
+          ? `Sesión abierta. Tu smart wallet quedó desplegada en testnet. Contrato ${receipt.contractId}.`
+          : `Sesión abierta con la smart wallet de este dispositivo. Contrato ${receipt.contractId}.`,
+        smartWallet: receipt,
+      },
+    ]);
+    setCaption("Pide un depósito, una cotización o un retiro.");
+    setGate("in");
+  }
+
+  function signOut() {
+    recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    void leaveSmartWallet();
+    setSmartWallet(null);
+    setMessages([]);
+    setDraft("");
+    setError("");
+    setPhase("idle");
+    setGate("out");
+  }
+
+  if (gate !== "in") {
+    return <SignIn checking={gate === "checking"} onEnter={enter} />;
+  }
+
   const phaseLabel =
     phase === "listening" ? "Escuchando" : phase === "thinking" ? "En testnet" : phase === "speaking" ? "Hablando" : "Listo";
   const quiet = messages.length === 0;
@@ -330,6 +365,9 @@ export function Console({ initialWallet }: { initialWallet: WalletView }) {
               Smart wallet {smartWallet.slice(0, 4)}…{smartWallet.slice(-4)}
             </a>
           ) : null}
+          <button type="button" onClick={signOut} className="mt-1 text-[10px] tracking-wide text-muted uppercase">
+            Cerrar sesión
+          </button>
         </div>
         <a
           className="rounded-2xl bg-paper px-3 py-2 text-right"

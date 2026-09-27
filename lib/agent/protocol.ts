@@ -115,7 +115,7 @@ export async function runProtocol(
         mode: "protocol",
         reply:
           intent.type === "smart-wallet"
-            ? "La smart wallet se crea en este navegador con un passkey. El servidor no puede registrar tu biometría: usa el botón «Crea mi smart wallet»."
+            ? "La smart wallet se crea en la pantalla de inicio de sesión, con el passkey de este dispositivo. El servidor no puede registrar tu biometría."
             : helpReply,
         steps,
         transaction,

@@ -45,7 +45,7 @@ export function parseIntent(message: string): Intent {
 }
 
 export const helpReply = [
-  "Puedo crear tu smart wallet con un passkey, y entrar o salir de Stellar por el anchor de demostración.",
-  "Prueba con «Crea mi smart wallet», «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC» o «¿Cuál es mi saldo?».",
+  "Puedo entrar y salir de Stellar por el anchor de demostración. Tu smart wallet se crea al iniciar sesión, con un passkey.",
+  "Prueba con «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC» o «¿Cuál es mi saldo?».",
   "El abono bancario es simulado. La autenticación SEP-10, la cotización y el USDC en testnet son reales.",
 ].join(" ");

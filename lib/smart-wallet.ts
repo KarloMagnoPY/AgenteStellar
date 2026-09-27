@@ -62,6 +62,25 @@ export async function restoreSmartWallet() {
   }
 }
 
+export async function connectSmartWallet(): Promise<SmartWalletReceipt> {
+  const current = await kit();
+  const session = await current.connectWallet({ prompt: true });
+  if (!session?.contractId) {
+    throw new Error("No encontré un passkey de agenteStellar en este dispositivo.");
+  }
+  return {
+    contractId: session.contractId,
+    created: false,
+    funded: true,
+    explorerUrl: explorer(session.contractId),
+  };
+}
+
+export async function leaveSmartWallet() {
+  const current = await kit();
+  await current.disconnect();
+}
+
 export async function openSmartWallet(): Promise<SmartWalletReceipt> {
   const current = await kit();
   const existing = await current.connectWallet();
