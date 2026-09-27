@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --background: #14120e;
+  --foreground: #f3eee4;
+  --paper: #1e1b16;
+  --paper-2: #27231c;
+  --line: #3c352c;
+  --amber: #e4a15c;
+  --mint: #9dccb0;
+  --danger: #e07a62;
+  --muted: #b3a898;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-line: var(--line);
+  --color-amber: var(--amber);
+  --color-mint: var(--mint);
+  --color-danger: var(--danger);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), sans-serif;
+}
+
+::selection {
+  background: #e4a15c;
+  color: #1a140e;
+}
+
+@keyframes goya-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes goya-listen {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes goya-ring {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes goya-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.goya-orb {
+  animation: goya-breathe 3.4s ease-in-out infinite;
+}
+
+.goya-orb-live {
+  animation: goya-listen 0.9s ease-in-out infinite;
+}
+
+.goya-ring {
+  animation: goya-ring 1.8s ease-out infinite;
+}
+
+.goya-bar {
+  transform-origin: center;
+  animation: goya-bar 0.9s ease-in-out infinite;
+}
