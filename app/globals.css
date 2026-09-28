@@ -42,6 +42,63 @@ body {
   overscroll-behavior: none;
 }
 
+@keyframes boot-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes boot-ring {
+  from {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 0.8;
+    transform: scale(1.06);
+  }
+}
+
+.boot-ring {
+  animation: boot-ring 0.9s ease-in-out infinite alternate;
+}
+
+.boot-mark {
+  animation: boot-in 0.65s ease both;
+}
+
+.boot-d1 {
+  animation-delay: 0.12s;
+}
+
+.boot-d2 {
+  animation-delay: 0.28s;
+}
+
+.boot-d3 {
+  animation-delay: 0.44s;
+}
+
+@keyframes rise-screen {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise-screen {
+  animation: rise-screen 0.55s ease both;
+}
+
 ::selection {
   background: #f0b45a;
   color: #1c1408;

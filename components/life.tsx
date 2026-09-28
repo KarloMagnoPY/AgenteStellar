@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Tutorial } from "@/components/intro";
 import { CountUp } from "@/components/motion";
 import { StepPicker } from "@/components/routine-screen";
 import type { Mood } from "@/components/creature";
@@ -35,12 +36,23 @@ export function LifeScreen({
   onSignOut: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [tour, setTour] = useState(false);
   const [mood, setMood] = useState<Mood>("idle");
   const [line, setLine] = useState("Quieto. Añade un paso y lo corro cuando tú digas.");
   const [running, setRunning] = useState(false);
   const [listening, setListening] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, LogLine>>({});
+
+  useEffect(() => {
+    if (localStorage.getItem("agentestellar-tutorial")) return;
+    setTour(true);
+  }, []);
+
+  function closeTour() {
+    localStorage.setItem("agentestellar-tutorial", "1");
+    setTour(false);
+  }
 
   async function ask(message: string) {
     const response = await fetch("/api/agent", {
@@ -139,14 +151,20 @@ export function LifeScreen({
   const status = running ? "Corriendo" : listening ? "En línea" : "Quieto";
 
   return (
-    <div className="mx-auto flex h-dvh w-full max-w-md flex-col bg-background sm:border-x sm:border-line">
+    <div className="rise-screen relative mx-auto flex h-dvh w-full max-w-md flex-col bg-background sm:border-x sm:border-line">
+      {tour ? <Tutorial key="tour" onClose={closeTour} /> : null}
       <header className="flex items-start justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
           <p className="mt-1 text-xs text-muted">Quieto hasta que corras</p>
-          <button type="button" onClick={onSignOut} className="mt-2 block text-xs text-muted">
-            Cerrar sesión
-          </button>
+          <div className="mt-2 flex gap-3">
+            <button type="button" onClick={() => setTour(true)} className="text-xs text-cool">
+              Tutorial
+            </button>
+            <button type="button" onClick={onSignOut} className="text-xs text-muted">
+              Cerrar sesión
+            </button>
+          </div>
         </div>
         <a
           className="rounded-2xl bg-paper px-3 py-2 text-right"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Startup } from "@/components/intro";
 import { DotsLoader, VoiceOrb } from "@/components/motion";
 import { connectSmartWallet, openSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
 
@@ -13,6 +14,7 @@ export function SignIn({
 }) {
   const [busy, setBusy] = useState<"create" | "connect" | null>(null);
   const [error, setError] = useState("");
+  const [booting, setBooting] = useState(true);
 
   async function run(mode: "create" | "connect") {
     if (busy || checking) return;
@@ -27,7 +29,8 @@ export function SignIn({
   }
 
   return (
-    <div className="mx-auto flex h-dvh w-full max-w-md flex-col bg-background px-6 sm:border-x sm:border-line">
+    <div className="relative mx-auto flex h-dvh w-full max-w-md flex-col bg-background px-6 sm:border-x sm:border-line">
+      {booting ? <Startup onDone={() => setBooting(false)} /> : null}
       <header className="pt-[max(1.25rem,env(safe-area-inset-top))]">
         <p className="font-display text-3xl leading-none text-accent">agenteStellar</p>
         <p className="mt-2 text-xs tracking-[0.18em] text-muted uppercase">Iniciar sesión · testnet</p>
