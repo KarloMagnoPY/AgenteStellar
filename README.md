@@ -4,6 +4,16 @@ Agente de voz para el teléfono. Con una frase entra o sale de Stellar a través
 
 El USDC lo emite ese anchor. No es USDC de Circle. El abono bancario es una simulación. El pago en la red es real y queda como comprobante en [Stellar Expert](https://stellar.expert/explorer/testnet).
 
+## Pantallas
+
+<p>
+  <img src="docs/pantallas/entrada.png" alt="Inicio de sesión con passkey" width="220" />
+  <img src="docs/pantallas/agente.png" alt="Agente quieto, a la espera de un paso" width="220" />
+  <img src="docs/pantallas/chat.png" alt="Chat con la smart wallet y las acciones" width="220" />
+</p>
+
+Entrada con passkey, el agente quieto y el chat con el comprobante de la smart wallet.
+
 ## Qué usa
 
 | Pieza | Para qué |
