@@ -158,7 +158,16 @@ export async function runProtocol(
       };
     }
 
-    if (intent.type === "life" || intent.type === "cycle" || intent.type === "history") {
+    if (
+      intent.type === "life" ||
+      intent.type === "cycle" ||
+      intent.type === "history" ||
+      intent.type === "accounts" ||
+      intent.type === "fee" ||
+      intent.type === "wallet" ||
+      intent.type === "contract" ||
+      intent.type === "market"
+    ) {
       throw new Error("Esa orden se responde antes de hablar con el anchor.");
     }
 
@@ -192,7 +201,7 @@ async function execute(
   origin: string,
   token: string,
   network: Awaited<ReturnType<typeof ensureNetworkAccounts>>,
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" } | { type: "accounts" } | { type: "fee" } | { type: "wallet" } | { type: "contract" } | { type: "market" }>,
   steps: Step[],
 ) {
   if (intent.type === "quote") {
@@ -307,7 +316,7 @@ async function execute(
 }
 
 function replyFor(
-  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" }>,
+  intent: Exclude<Intent, { type: "help" } | { type: "balance" } | { type: "smart-wallet" } | { type: "life" } | { type: "cycle" } | { type: "history" } | { type: "accounts" } | { type: "fee" } | { type: "wallet" } | { type: "contract" } | { type: "market" }>,
   transaction: PublicTransaction | null,
   usdc: string,
   steps: Step[],

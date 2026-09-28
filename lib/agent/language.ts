@@ -2,7 +2,7 @@ import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 import { runProtocol } from "./protocol";
 import type { LifeView } from "../life";
-import type { AgentResponse, PublicTransaction, Step } from "../types";
+import type { AgentResponse, FactCard, PublicTransaction, Step } from "../types";
 import { walletView } from "../wallet";
 
 const MODEL = process.env.GOYA_MODEL || "anthropic/claude-sonnet-5";
@@ -20,6 +20,7 @@ export async function runLanguage(
   const steps: Step[] = [];
   let transaction: PublicTransaction | null = null;
   let life: LifeView | undefined;
+  let card: FactCard | undefined;
 
   const absorb = (result: AgentResponse) => {
     steps.push(...result.steps);
@@ -37,7 +38,7 @@ export async function runLanguage(
     instructions: [
       "Eres agenteStellar, un agente que entra y sale de Stellar usando un anchor de demostración.",
       "Habla en español, breve y concreto.",
-      "Usa las herramientas para saldo, cotización, depósito, retiro, vida, ciclo e historial. No inventes hashes, montos ni saldos.",
+      "Usa las herramientas para saldo, cotización, depósito, retiro, comisión, cuentas, vida, ciclo e historial. No inventes hashes, montos ni saldos.",
       "Un ciclo de vida cobra 0.05 y arriesga cerca de un cuarto del saldo en una sola mesa. La meta es 500. En 0 muere.",
       "El anchor es real. Trading, lending, perpetuos y predicciones de la pantalla Vida son un simulacro con reglas públicas.",
       "El abono bancario es simulado. SEP-10, SEP-38 y el USDC en testnet son reales.",
@@ -48,7 +49,34 @@ export async function runLanguage(
       saldo: tool({
         description: "Lee el saldo XLM y USDC de demostración del agente en testnet.",
         inputSchema: z.object({}),
-        execute: async () => absorb(await runProtocol(origin, "¿Cuál es mi saldo?")),
+        execute: async () => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, { type: "balance" });
+          card = result.card;
+          return { reply: result.reply };
+        },
+      }),
+      cuentas: tool({
+        description: "Muestra la cuenta del agente y la del anchor, con enlace a Stellar Expert.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, { type: "accounts" });
+          card = result.card;
+          return { reply: result.reply };
+        },
+      }),
+      comision: tool({
+        description: "Calcula la comisión del 1 % sin mover la red. amount es el USD que entrarían.",
+        inputSchema: z.object({
+          amount: z.string().describe("USD a cotizar en comisión, entre 1 y 1000."),
+        }),
+        execute: async ({ amount }) => {
+          const { answerAside } = await import("./aside");
+          const result = await answerAside(origin, { type: "fee", amount });
+          card = result.card;
+          return { reply: result.reply };
+        },
       }),
       cotizar: tool({
         description: "Pide una cotización SEP-38. direction deposit cambia USD a USDC; withdraw cambia USDC a USD.",
@@ -87,8 +115,9 @@ export async function runLanguage(
         inputSchema: z.object({}),
         execute: async () => {
           const { answerAside } = await import("./aside");
-          const result = await answerAside(origin, "life");
+          const result = await answerAside(origin, { type: "life" });
           life = result.life;
+          card = result.card;
           return { reply: result.reply };
         },
       }),
@@ -97,8 +126,9 @@ export async function runLanguage(
         inputSchema: z.object({}),
         execute: async () => {
           const { answerAside } = await import("./aside");
-          const result = await answerAside(origin, "cycle");
+          const result = await answerAside(origin, { type: "cycle" });
           life = result.life;
+          card = result.card;
           return { reply: result.reply };
         },
       }),
@@ -107,7 +137,8 @@ export async function runLanguage(
         inputSchema: z.object({}),
         execute: async () => {
           const { answerAside } = await import("./aside");
-          const result = await answerAside(origin, "history");
+          const result = await answerAside(origin, { type: "history" });
+          card = result.card;
           return { reply: result.reply };
         },
       }),
@@ -122,5 +153,6 @@ export async function runLanguage(
     transaction,
     wallet: await walletView(),
     life,
+    card,
   };
 }

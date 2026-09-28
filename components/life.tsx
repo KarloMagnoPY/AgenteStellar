@@ -1,174 +1,279 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
-import { daySentence } from "@/lib/life-copy";
-import type { LifeView } from "@/lib/life";
+import { CountUp } from "@/components/motion";
+import { StepPicker } from "@/components/routine-screen";
+import type { Mood } from "@/components/creature";
+import { stepById, stepMessage, type RoutineItem } from "@/lib/routine";
+import type { AgentResponse, FactCard, WalletView } from "@/lib/types";
+
+const Creature = dynamic(() => import("@/components/creature").then((mod) => mod.Creature), {
+  ssr: false,
+});
+
+type LogLine = { title: string; reply: string; card?: FactCard };
 
 function money(value: string) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 }
 
-const STEPS = [
-  "Cobra 0.05 por seguir vivo.",
-  "Elige una sola mesa y arriesga cerca de un cuarto del saldo.",
-  "Ese resultado se suma o se resta. En 0 muere. En 500 llega.",
-];
-
-const LEGEND = [
-  { name: "Anchor", note: "En la red. Solo cotiza. El día cobra 0.05." },
-  { name: "Trading", note: "Práctica. Puede perder la puesta o multiplicarla." },
-  { name: "Préstamo", note: "Práctica. Casi siempre deja un interés chico." },
-  { name: "Perpetuos", note: "Práctica. Gana o pierde el doble de la puesta." },
-  { name: "Predicciones", note: "Práctica. Duplica la puesta o la pierde." },
-];
-
 export function LifeScreen({
-  life,
-  onLife,
+  wallet,
+  items,
+  onChange,
+  onWallet,
   onTalk,
   onSignOut,
 }: {
-  life: LifeView;
-  onLife: (life: LifeView) => void;
+  wallet: WalletView;
+  items: RoutineItem[];
+  onChange: (items: RoutineItem[]) => void;
+  onWallet: (wallet: WalletView) => void;
   onTalk: () => void;
   onSignOut: () => void;
 }) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const balance = money(life.balance);
-  const left = Math.max(0, money(life.target) - balance);
-  const progress = Math.min(100, (balance / money(life.target)) * 100);
-  const dead = life.status === "dead";
-  const ascended = life.status === "ascended";
-  const phase = pending ? "thinking" : dead ? "idle" : "speaking";
-  const latest = life.log[0];
-  const older = life.log.slice(1, 4);
+  const [adding, setAdding] = useState(false);
+  const [mood, setMood] = useState<Mood>("idle");
+  const [line, setLine] = useState("Quieto. Añade un paso y lo corro cuando tú digas.");
+  const [running, setRunning] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, LogLine>>({});
 
-  async function act(action: "cycle" | "reset") {
-    if (pending) return;
-    setPending(true);
-    setError("");
+  async function ask(message: string) {
+    const response = await fetch("/api/agent", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    const data = (await response.json()) as AgentResponse & { error?: string };
+    if (!response.ok) throw new Error(data.error || "No pude actuar.");
+    if (data.wallet) onWallet(data.wallet);
+    return data;
+  }
+
+  async function runAll() {
+    if (running || items.length === 0) return;
+    setRunning(true);
+    setMood("work");
+    setResults({});
     try {
-      const response = await fetch("/api/life", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = (await response.json()) as LifeView & { error?: string };
-      if (!response.ok) throw new Error(data.error || "La vida no pudo avanzar.");
-      onLife(data);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "La vida no pudo avanzar.");
+      for (const [index, item] of items.entries()) {
+        const step = stepById(item.stepId);
+        if (!step) continue;
+        setActive(item.uid);
+        setLine(`${index + 1} de ${items.length} · ${step.title}`);
+        try {
+          const data = await ask(stepMessage(step, item.input));
+          setResults((current) => ({
+            ...current,
+            [item.uid]: { title: step.title, reply: data.reply, card: data.card },
+          }));
+        } catch (error) {
+          setResults((current) => ({
+            ...current,
+            [item.uid]: {
+              title: step.title,
+              reply: error instanceof Error ? error.message : "No pude hacer ese paso.",
+            },
+          }));
+        }
+      }
+      setLine("Listo. Se queda quieto hasta la próxima vez.");
     } finally {
-      setPending(false);
+      setActive(null);
+      setMood("idle");
+      setRunning(false);
     }
   }
 
+  function listen() {
+    const vendor = window as Window & {
+      SpeechRecognition?: new () => {
+        lang: string;
+        onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+    };
+    const Ctor = vendor.SpeechRecognition ?? vendor.webkitSpeechRecognition;
+    if (!Ctor) {
+      setLine("Este navegador no escucha. Escríbele en el chat.");
+      return;
+    }
+    const recognition = new Ctor();
+    recognition.lang = "es-MX";
+    recognition.onresult = (event) => {
+      const heard = event.results[0]?.[0]?.transcript ?? "";
+      if (!heard) return;
+      setListening(false);
+      setMood("talk");
+      void ask(heard)
+        .then((data) => {
+          setLine(data.reply);
+          setResults((current) => ({
+            ...current,
+            voz: { title: heard, reply: data.reply, card: data.card },
+          }));
+        })
+        .catch(() => setLine("No pude cumplir esa orden."))
+        .finally(() => setMood("idle"));
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    setListening(true);
+    setMood("talk");
+    recognition.start();
+  }
+
+  const status = running ? "Corriendo" : listening ? "En línea" : "Quieto";
+
   return (
     <div className="mx-auto flex h-dvh w-full max-w-md flex-col bg-background sm:border-x sm:border-line">
-      <header className="flex items-start justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+      <header className="flex items-start justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
-          <p className="mt-1 text-xs text-muted">La vida del agente</p>
-          <button type="button" onClick={onSignOut} className="mt-1 text-[10px] tracking-wide text-muted uppercase">
+          <p className="mt-1 text-xs text-muted">Quieto hasta que corras</p>
+          <button type="button" onClick={onSignOut} className="mt-2 block text-xs text-muted">
             Cerrar sesión
           </button>
         </div>
-        <div className="rounded-2xl bg-paper px-3 py-2 text-right">
-          <span className="block font-display text-xl leading-none">Día {life.cycles}</span>
-          <span className="mt-1 block text-[10px] tracking-wide text-muted uppercase">
-            {dead ? "murió" : ascended ? "llegó" : "vivo"}
+        <a
+          className="rounded-2xl bg-paper px-3 py-2 text-right"
+          href={`https://stellar.expert/explorer/testnet/account/${wallet.userPublicKey}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="block font-display text-xl leading-none">
+            <CountUp value={money(wallet.usdc)} />
           </span>
-        </div>
+          <span className="mt-1 block text-[10px] tracking-wide text-muted uppercase">USDC en la red</span>
+        </a>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-4">
-        <div className="flex flex-col items-center text-center">
-          <VoiceOrb phase={phase} />
-          <p className="mt-2 font-display text-5xl leading-none">
-            <CountUp value={balance} />
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-3">
+        <div className="relative h-56 overflow-hidden rounded-[2rem] border border-line bg-[radial-gradient(circle_at_50%_42%,#243140,transparent_72%)]">
+          <Creature mood={mood} />
+          <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.18em] text-cool uppercase">
+            {status}
           </p>
-          <p className="mt-2 text-sm text-muted">
-            Nació con {life.start}. La meta es {life.target}. Lleva {life.multiple}× de 100×.
-          </p>
-          <p className="mt-1 text-sm">Faltan {left.toFixed(2)} para llegar.</p>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-paper-2" aria-hidden>
-            <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
-          </div>
         </div>
-
-        <section className="glass mt-4 rounded-3xl px-4 py-3">
-          <p className="text-[10px] tracking-[0.16em] text-mint uppercase">Un día hace esto</p>
-          <ol className="mt-2 space-y-2">
-            {STEPS.map((step, index) => (
-              <li key={step} className="flex gap-3 text-sm leading-5">
-                <span className="font-display text-accent">{index + 1}</span>
-                <span>{step}</span>
+        <p className="mt-3 text-sm leading-6 text-foreground">{line}</p>
+        <ol className="mt-3 space-y-2">
+          {items.map((item, index) => {
+            const step = stepById(item.stepId);
+            const result = results[item.uid];
+            const now = active === item.uid;
+            return (
+              <li
+                key={item.uid}
+                className={`rounded-2xl border px-3 py-3 ${now ? "border-signal bg-[#2a2418]" : "border-line bg-paper"}`}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm">
+                    <span className="text-signal">{index + 1}. </span>
+                    {step?.title ?? "Paso"}
+                  </p>
+                  {running ? (
+                    <p className="shrink-0 text-[10px] tracking-wide text-muted uppercase">
+                      {now ? "Ahora" : result ? "Listo" : "En espera"}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs text-muted"
+                      onClick={() => onChange(items.filter((entry) => entry.uid !== item.uid))}
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+                {item.input ? <p className="mt-1 truncate font-mono text-[11px] text-muted">{item.input}</p> : null}
+                {result ? <p className="mt-2 text-sm leading-6 text-foreground">{result.reply}</p> : null}
+                {result?.card ? (
+                  <dl className="mt-2 space-y-1">
+                    {result.card.rows.map((row) => (
+                      <div key={`${row.label}-${row.value}`} className="flex justify-between gap-3 text-xs">
+                        <dt className="text-muted">{row.label}</dt>
+                        <dd className="max-w-[68%] text-right [overflow-wrap:anywhere]">
+                          {row.href ? (
+                            <a className="text-cool" href={row.href} target="_blank" rel="noreferrer">
+                              {row.value}
+                            </a>
+                          ) : (
+                            row.value
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
               </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="mt-4">
-          <p className="text-[10px] tracking-[0.16em] text-muted uppercase">Hoy</p>
-          {latest ? (
-            <p className="glass mt-2 rounded-3xl px-4 py-3 text-sm leading-6">{daySentence(latest)}</p>
-          ) : (
-            <p className="glass mt-2 rounded-3xl px-4 py-3 text-sm leading-6 text-muted">
-              Todavía no ha vivido un día. El botón de abajo lo despierta.
-            </p>
-          )}
-          {older.length > 0 ? (
-            <ul className="mt-2 space-y-1">
-              {older.map((entry) => (
-                <li key={entry.at} className="text-xs leading-5 text-muted">
-                  {daySentence(entry)}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-
-        <section className="mt-4">
-          <p className="text-[10px] tracking-[0.16em] text-muted uppercase">Mesas</p>
-          <ul className="mt-2 space-y-2">
-            {LEGEND.map((desk) => (
-              <li key={desk.name} className="flex gap-3 text-sm leading-5">
-                <span className="w-24 shrink-0 text-accent">{desk.name}</span>
-                <span className="text-muted">{desk.note}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+            );
+          })}
+        </ol>
+        {adding ? <StepPicker items={items} onChange={onChange} /> : null}
+        {results.voz ? (
+          <div className="mt-2 rounded-2xl border border-line bg-paper px-3 py-3">
+            <p className="text-[10px] tracking-wide text-cool uppercase">Le dijiste</p>
+            <p className="mt-1 text-sm">{results.voz.title}</p>
+            <p className="mt-2 text-sm leading-6 text-muted">{results.voz.reply}</p>
+          </div>
+        ) : null}
       </main>
 
       <footer className="px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {dead || ascended ? (
+        {adding ? (
           <button
             type="button"
-            disabled={pending}
-            onClick={() => void act("reset")}
-            className="w-full rounded-full bg-accent py-4 text-base font-medium text-background disabled:opacity-50"
+            onClick={() => setAdding(false)}
+            className="mb-2 w-full rounded-full bg-signal py-3 text-sm font-medium text-[#1c1408]"
           >
-            {ascended ? "Empezar otra vida" : "Nacer de nuevo"}
+            {items.length === 0 ? "Ahora no" : "Listo"}
+          </button>
+        ) : items.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="mb-2 w-full rounded-full bg-signal py-3 text-sm font-medium text-[#1c1408]"
+          >
+            Añadir un paso
           </button>
         ) : (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => void act("cycle")}
-            className="flex w-full items-center justify-center gap-3 rounded-full bg-accent py-4 text-base font-medium text-background disabled:opacity-50"
-          >
-            {pending ? <DotsLoader /> : null}
-            {pending ? "Viviendo el día" : "Vivir un día"}
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={running}
+              onClick={() => void runAll()}
+              className="mb-2 w-full rounded-full bg-foreground py-3 text-sm font-medium text-background disabled:opacity-40"
+            >
+              {running ? "Corriendo…" : "Correr rutina"}
+            </button>
+            {!running ? (
+              <button type="button" onClick={() => setAdding(true)} className="mb-2 w-full py-1 text-sm text-cool">
+                Añadir otro paso
+              </button>
+            ) : null}
+          </>
         )}
-        <button type="button" onClick={onTalk} className="glass mt-3 w-full rounded-full py-3 text-sm">
-          Hablar con el agente
-        </button>
-        {error ? <p className="mt-2 text-center text-xs text-danger">{error}</p> : null}
+        <div className="flex gap-2">
+          <button type="button" onClick={listen} className="flex-1 rounded-full bg-signal py-3 text-sm font-medium text-[#1c1408]">
+            {listening ? "Te escucho" : "Hablarle"}
+          </button>
+          <button type="button" onClick={onTalk} className="glass flex-1 rounded-full py-3 text-sm">
+            Abrir el chat
+          </button>
+        </div>
       </footer>
     </div>
   );

@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #06110c;
-  --foreground: #e8f7ef;
-  --paper: #0e1f17;
-  --paper-2: #153226;
-  --line: #24543c;
+  --background: #0c1016;
+  --foreground: #f4f1ea;
+  --paper: #171d26;
+  --paper-2: #232b36;
+  --line: #3a4654;
   --accent: #3ee08f;
-  --mint: #b6ffd8;
+  --signal: #f0b45a;
+  --cool: #8ecbff;
+  --mint: #d5dbe4;
   --danger: #ff8d7a;
-  --muted: #8eae9c;
+  --muted: #93a0ae;
 }
 
 @theme inline {
@@ -19,6 +21,8 @@
   --color-paper-2: var(--paper-2);
   --color-line: var(--line);
   --color-accent: var(--accent);
+  --color-signal: var(--signal);
+  --color-cool: var(--cool);
   --color-mint: var(--mint);
   --color-danger: var(--danger);
   --color-muted: var(--muted);
@@ -39,24 +43,24 @@ body {
 }
 
 ::selection {
-  background: #3ee08f;
-  color: #062014;
+  background: #f0b45a;
+  color: #1c1408;
 }
 
 .glass {
-  background: linear-gradient(180deg, rgba(190, 255, 220, 0.16), rgba(8, 28, 18, 0.42));
-  border: 1px solid rgba(190, 255, 220, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(12, 16, 22, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 16px 40px rgba(0, 0, 0, 0.28);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
 }
 
 .glass-user {
-  background: linear-gradient(180deg, rgba(62, 224, 143, 0.28), rgba(10, 40, 24, 0.45));
-  border: 1px solid rgba(182, 255, 216, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(240, 180, 90, 0.24), rgba(22, 16, 10, 0.5));
+  border: 1px solid rgba(240, 180, 90, 0.38);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }

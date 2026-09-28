@@ -60,7 +60,7 @@ export function SignIn({
           onClick={() => void run("create")}
           className="w-full rounded-full bg-accent py-4 text-base font-medium text-background disabled:opacity-50"
         >
-          Iniciar sesión
+          Entrar con passkey
         </button>
         <button
           type="button"
@@ -68,7 +68,7 @@ export function SignIn({
           onClick={() => void run("connect")}
           className="glass mt-3 w-full rounded-full py-3 text-sm disabled:opacity-50"
         >
-          Ya tengo un passkey
+          Usar el que ya tengo
         </button>
         {error ? <p className="mt-3 text-center text-xs text-danger">{error}</p> : null}
       </footer>

@@ -1,4 +1,5 @@
 import { answerAside } from "@/lib/agent/aside";
+import { answerDesk } from "@/lib/agent/desk";
 import { hasLanguageModel, runLanguage } from "@/lib/agent/language";
 import { parseIntent } from "@/lib/agent/intent";
 import { runProtocol } from "@/lib/agent/protocol";
@@ -15,8 +16,18 @@ export async function POST(req: Request) {
 
   const origin = new URL(req.url).origin;
   const intent = parseIntent(message);
-  if (intent.type === "life" || intent.type === "cycle" || intent.type === "history") {
-    return json(await answerAside(origin, intent.type));
+  if (
+    intent.type === "life" ||
+    intent.type === "cycle" ||
+    intent.type === "history" ||
+    intent.type === "accounts" ||
+    intent.type === "fee" ||
+    intent.type === "balance"
+  ) {
+    return json(await answerAside(origin, intent));
+  }
+  if (intent.type === "wallet" || intent.type === "contract" || intent.type === "market") {
+    return json(await answerDesk(intent));
   }
   if (intent.type === "help" && hasLanguageModel()) {
     try {

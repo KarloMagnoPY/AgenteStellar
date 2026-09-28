@@ -65,18 +65,18 @@ export function VoiceOrb({ phase, large }: { phase: Phase; large?: boolean }) {
 
   return (
     <div ref={root} className={`relative grid place-items-center ${box}`}>
-      <span data-ring className="absolute inset-4 rounded-full border border-accent/70" />
-      <span data-ring className="absolute inset-4 rounded-full border border-mint/40" />
+      <span data-ring className="absolute inset-4 rounded-full border border-signal/80" />
+      <span data-ring className="absolute inset-4 rounded-full border border-cool/40" />
       <span
         data-core
-        className={`relative rounded-full bg-[radial-gradient(circle_at_35%_30%,#f4fff8,#3ee08f_38%,#12824d_70%,#06321c)] shadow-[0_0_42px_rgba(62,224,143,0.45)] ${core}`}
+        className={`relative rounded-full bg-[radial-gradient(circle_at_35%_30%,#f7f4ee,#d7dee6_26%,#5c6b7a_58%,#1a2129)] shadow-[0_0_28px_rgba(240,180,90,0.35)] ${core}`}
       />
       <span className="pointer-events-none absolute bottom-2 flex h-8 items-end gap-1">
         {Array.from({ length: large ? 11 : 5 }, (_, index) => (
           <span
             key={index}
             data-bar
-            className={`w-0.5 origin-bottom rounded-full bg-mint ${large ? "h-6" : "h-3"}`}
+            className={`w-0.5 origin-bottom rounded-full bg-signal ${large ? "h-6" : "h-3"}`}
           />
         ))}
       </span>

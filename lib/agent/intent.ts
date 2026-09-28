@@ -1,3 +1,5 @@
+import { findProtocol } from "../market";
+
 export type Intent =
   | { type: "help" }
   | { type: "smart-wallet" }
@@ -5,9 +7,14 @@ export type Intent =
   | { type: "life" }
   | { type: "cycle" }
   | { type: "history" }
+  | { type: "accounts" }
+  | { type: "fee"; amount: string }
   | { type: "deposit"; amount: string }
   | { type: "withdraw"; amount: string }
-  | { type: "quote"; direction: "deposit" | "withdraw"; amount: string };
+  | { type: "quote"; direction: "deposit" | "withdraw"; amount: string }
+  | { type: "wallet"; id: string }
+  | { type: "contract"; id: string }
+  | { type: "market"; id?: string };
 
 function normalize(message: string) {
   return message
@@ -24,6 +31,13 @@ function amountOf(text: string) {
 export function parseIntent(message: string): Intent {
   const text = normalize(message);
   const amount = amountOf(text);
+  const contract = message.toUpperCase().match(/\b(C[A-Z2-7]{55})\b/);
+  const account = message.toUpperCase().match(/\b(G[A-Z2-7]{55})\b/);
+  if (contract) return { type: "contract", id: contract[1] };
+  if (account && /wallet|cuenta|saldo|revisa/.test(text)) return { type: "wallet", id: account[1] };
+  const protocol = findProtocol(text);
+  if (protocol && /analiza|mercado|opera/.test(text)) return { type: "market", id: protocol.id };
+  if (/analiza el mercado|que hay en el mercado|mercado de stellar/.test(text)) return { type: "market" };
   if (
     /smart\s*wallet|billetera inteligente|passkey/.test(text) ||
     /crea(r|me)? (mi |la )?(cuenta|wallet|billetera)/.test(text)
@@ -38,6 +52,12 @@ export function parseIntent(message: string): Intent {
   }
   if (/historial|movimientos|que he hecho|ultimas transacciones/.test(text)) {
     return { type: "history" };
+  }
+  if (/comision|cuanto cobra|que cobra/.test(text)) {
+    return { type: "fee", amount: amount ?? "25" };
+  }
+  if (/mis cuentas|direcciones|emisor|quien emite/.test(text)) {
+    return { type: "accounts" };
   }
   if (/saldo|balance|cuanto tengo/.test(text)) return { type: "balance" };
   if (/retira|saca|off-?ramp|vende/.test(text)) {
@@ -57,8 +77,8 @@ export function parseIntent(message: string): Intent {
 }
 
 export const helpReply = [
-  "Puedo mover USDC de prueba por el anchor y también vivir un día de la vida.",
-  "Dinero: «Fondea 25 USD», «Cotiza 100 USD», «Retira 10 USDC», «¿Cuál es mi saldo?», «¿Qué he hecho?».",
-  "Vida: «¿Cómo va la vida?» y «Vive un ciclo». Un ciclo cobra 0.05 y arriesga una sola mesa.",
+  "No actúo solo. Puedo revisar tu saldo, otra wallet, un contrato, o leer el mercado de Stellar.",
+  "En esta demo sí puedo cotizar, fondear y retirar USDC del anchor: «Cotiza 100 USD», «Fondea 25 USD», «Retira 10 USDC».",
+  "Blend, Aquarius, Zenex y el resto los leo. No les mando este USDC, porque no es el de Circle.",
   "El abono bancario es simulado. SEP-10, la cotización y el USDC en testnet son reales.",
 ].join(" ");

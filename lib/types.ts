@@ -27,6 +27,11 @@ export type WalletView = {
   funded: boolean;
 };
 
+export type FactCard = {
+  title: string;
+  rows: Array<{ label: string; value: string; href?: string }>;
+};
+
 export type AgentResponse = {
   mode: "protocol" | "language";
   reply: string;
@@ -34,4 +39,5 @@ export type AgentResponse = {
   transaction: PublicTransaction | null;
   wallet: WalletView;
   life?: LifeView;
+  card?: FactCard;
 };

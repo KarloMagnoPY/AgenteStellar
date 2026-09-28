@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AGENT_ACTIONS, ActionButton, type AgentAction } from "@/components/actions";
 import { LifeScreen } from "@/components/life";
+import { stepById, type RoutineItem } from "@/lib/routine";
 import { ChatBubble, CountUp, DotsLoader, VoiceOrb } from "@/components/motion";
 import { SignIn } from "@/components/sign-in";
 import { leaveSmartWallet, openSmartWallet, wantsSmartWallet, type SmartWalletReceipt } from "@/lib/smart-wallet";
-import type { LifeView } from "@/lib/life";
-import type { AgentResponse, PublicTransaction, Step, WalletView } from "@/lib/types";
+import type { AgentResponse, FactCard, PublicTransaction, Step, WalletView } from "@/lib/types";
 
 type ChatMessage = {
   id: string;
@@ -15,6 +16,7 @@ type ChatMessage = {
   steps?: Step[];
   transaction?: AgentResponse["transaction"];
   smartWallet?: SmartWalletReceipt;
+  card?: FactCard;
   mode?: AgentResponse["mode"];
 };
 
@@ -44,11 +46,6 @@ type BrowserRecognition = {
 };
 
 type RecognitionCtor = new () => BrowserRecognition;
-
-const PROMPT_GROUPS = [
-  { label: "Dinero", prompts: ["Fondea 25 USD", "Cotiza 100 USD", "Retira 10 USDC", "¿Cuál es mi saldo?", "¿Qué he hecho?"] },
-  { label: "Vida", prompts: ["¿Cómo va la vida?", "Vive un ciclo"] },
-];
 
 function assetName(asset: string) {
   if (asset.startsWith("iso4217:")) return asset.slice("iso4217:".length);
@@ -99,6 +96,30 @@ function Receipt({ transaction }: { transaction: PublicTransaction }) {
     <a className={className} href={transaction.explorerUrl} target="_blank" rel="noreferrer">
       {body}
     </a>
+  );
+}
+
+function FactSheet({ card }: { card: FactCard }) {
+  return (
+    <div className="mt-3 rounded-2xl border border-white/20 bg-black/25 px-3 py-3">
+      <p className="text-[10px] tracking-[0.18em] text-mint uppercase">{card.title}</p>
+      <dl className="mt-2 space-y-2">
+        {card.rows.map((row) => (
+          <div key={`${row.label}-${row.value}`} className="flex items-baseline justify-between gap-3 text-sm">
+            <dt className="shrink-0 text-muted">{row.label}</dt>
+            <dd className="text-right [overflow-wrap:anywhere]">
+              {row.href ? (
+                <a className="text-accent" href={row.href} target="_blank" rel="noreferrer">
+                  {row.value}
+                </a>
+              ) : (
+                row.value
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -154,16 +175,11 @@ function money(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
-export function Console({
-  initialWallet,
-  initialLife,
-}: {
-  initialWallet: WalletView;
-  initialLife: LifeView;
-}) {
+export function Console({ initialWallet }: { initialWallet: WalletView }) {
   const [wallet, setWallet] = useState(initialWallet);
-  const [life, setLife] = useState(initialLife);
   const [surface, setSurface] = useState<"vida" | "voz">("vida");
+  const [routine, setRoutine] = useState<RoutineItem[]>([]);
+  const [routineReady, setRoutineReady] = useState(false);
   const [gate, setGate] = useState<"checking" | "out" | "in">("out");
   const [smartWallet, setSmartWallet] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -172,8 +188,9 @@ export function Console({
   const [pendingLabel, setPendingLabel] = useState("En testnet. La primera vez Friendbot tarda un poco.");
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
-  const [caption, setCaption] = useState("Puedo mover USDC de prueba o vivir un día.");
+  const [caption, setCaption] = useState("No actúa solo. Revisa, lee el mercado o opera en la demo.");
   const scroller = useRef<HTMLDivElement>(null);
+  const orderRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<BrowserRecognition | null>(null);
   const pendingRef = useRef(false);
 
@@ -182,31 +199,32 @@ export function Console({
   }, [messages, pending]);
 
   useEffect(() => {
+    const raw = localStorage.getItem("agentestellar-routine");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as RoutineItem[];
+        if (Array.isArray(parsed)) {
+          setRoutine(parsed.filter((item) => item && stepById(item.stepId)));
+        }
+      } catch {
+        setRoutine([]);
+      }
+    }
+    setRoutineReady(true);
     return () => {
       recognitionRef.current?.stop();
-      window.speechSynthesis?.cancel();
     };
   }, []);
 
-  function speak(text: string) {
-    if (!window.speechSynthesis) {
-      setPhase("idle");
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "es-MX";
-    utterance.onend = () => setPhase("idle");
-    utterance.onerror = () => setPhase("idle");
-    setPhase("speaking");
-    window.speechSynthesis.speak(utterance);
-  }
+  useEffect(() => {
+    if (!routineReady) return;
+    localStorage.setItem("agentestellar-routine", JSON.stringify(routine));
+  }, [routine, routineReady]);
 
   async function send(text: string) {
     const message = text.trim();
     if (!message || pendingRef.current) return;
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
     pendingRef.current = true;
     setDraft("");
     setError("");
@@ -231,7 +249,7 @@ export function Console({
           { id: crypto.randomUUID(), role: "assistant", text: reply, smartWallet: receipt },
         ]);
         setCaption(reply);
-        speak(reply);
+        setPhase("idle");
       } catch (reason) {
         const messageText = reason instanceof Error ? reason.message : "No pude crear la smart wallet.";
         setError(messageText);
@@ -252,7 +270,6 @@ export function Console({
       const data = (await response.json()) as AgentResponse & { error?: string };
       if (!response.ok) throw new Error(data.error || "El agente falló.");
       if (data.wallet) setWallet(data.wallet);
-      if (data.life) setLife(data.life);
       setMessages((current) => [
         ...current,
         {
@@ -261,11 +278,12 @@ export function Console({
           text: data.reply,
           steps: data.steps,
           transaction: data.transaction,
+          card: data.card,
           mode: data.mode,
         },
       ]);
       setCaption(data.reply);
-      speak(data.reply);
+      setPhase("idle");
     } catch (reason) {
       const messageText = reason instanceof Error ? reason.message : "El agente falló.";
       setError(messageText);
@@ -285,7 +303,6 @@ export function Console({
       document.getElementById("order")?.focus();
       return;
     }
-    window.speechSynthesis?.cancel();
     const recognition = new Ctor();
     recognition.lang = "es-MX";
     recognition.interimResults = true;
@@ -328,13 +345,13 @@ export function Console({
         smartWallet: receipt,
       },
     ]);
-    setCaption("Puedo mover USDC de prueba o vivir un día.");
+    setCaption("No actúa solo. Revisa, lee el mercado o opera en la demo.");
+    setSurface("vida");
     setGate("in");
   }
 
   function signOut() {
     recognitionRef.current?.stop();
-    window.speechSynthesis?.cancel();
     void leaveSmartWallet();
     setSmartWallet(null);
     setMessages([]);
@@ -348,11 +365,23 @@ export function Console({
     return <SignIn checking={gate === "checking"} onEnter={enter} />;
   }
 
+  function pick(action: AgentAction) {
+    if (action.fill) {
+      setDraft(action.label);
+      setCaption(action.id === "wallet" ? "Pega la cuenta G… y envía." : "Pega el contrato C… y envía.");
+      requestAnimationFrame(() => orderRef.current?.focus());
+      return;
+    }
+    void send(action.label);
+  }
+
   if (surface === "vida") {
     return (
       <LifeScreen
-        life={life}
-        onLife={setLife}
+        wallet={wallet}
+        items={routine}
+        onChange={setRoutine}
+        onWallet={setWallet}
         onTalk={() => setSurface("voz")}
         onSignOut={signOut}
       />
@@ -365,24 +394,18 @@ export function Console({
 
   return (
     <div className="mx-auto flex h-dvh w-full max-w-md flex-col bg-background sm:border-x sm:border-line">
-      <header className="flex items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+      <header className="flex items-start justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <div>
           <p className="font-display text-2xl leading-none text-accent">agenteStellar</p>
-          <p className="mt-1 text-xs text-muted">Agente de voz · testnet</p>
-          <button type="button" onClick={() => setSurface("vida")} className="mt-1 text-[10px] tracking-wide text-accent uppercase">
-            Volver a la vida
+          <button
+            type="button"
+            onClick={() => setSurface("vida")}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-signal px-4 py-2.5 text-sm font-medium text-[#1c1408]"
+          >
+            <span aria-hidden="true">←</span>
+            Volver al agente
           </button>
-          {smartWallet ? (
-            <a
-              className="mt-1 block font-mono text-[10px] text-accent"
-              href={`https://stellar.expert/explorer/testnet/contract/${smartWallet}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Smart wallet {smartWallet.slice(0, 4)}…{smartWallet.slice(-4)}
-            </a>
-          ) : null}
-          <button type="button" onClick={signOut} className="mt-1 text-[10px] tracking-wide text-muted uppercase">
+          <button type="button" onClick={signOut} className="mt-2 block text-xs text-muted">
             Cerrar sesión
           </button>
         </div>
@@ -396,18 +419,36 @@ export function Console({
             <CountUp value={money(wallet.usdc)} />
           </span>
           <span className="mt-1 block text-[10px] tracking-wide text-muted uppercase">USDC demo</span>
+          <span className="mt-1 block text-[10px] text-muted">{Number(wallet.xlm).toFixed(2)} XLM</span>
         </a>
       </header>
 
       <main ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5">
         {quiet ? (
-          <div className="flex flex-1 flex-col items-center justify-center pb-6 text-center">
-            <VoiceOrb phase={phase} large />
-            <p className="mt-2 text-[11px] tracking-[0.2em] text-mint uppercase">{phaseLabel}</p>
-            <p className="mt-3 max-w-[16rem] text-base leading-6">{caption}</p>
-            <p className="mt-2 text-xs text-muted">
-              <CountUp value={money(wallet.xlm)} /> XLM en la cuenta del agente
-            </p>
+          <div className="flex flex-1 flex-col pb-4">
+            <div className="flex items-center gap-3 py-4">
+              <VoiceOrb phase={phase} />
+              <div className="min-w-0 text-left">
+                <p className="text-[10px] tracking-[0.18em] text-signal uppercase">{phaseLabel}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{caption}</p>
+              </div>
+            </div>
+            {(["Revisar", "Operar"] as const).map((group) => (
+              <section key={group} className="mt-2">
+                <h2 className="text-[10px] tracking-[0.18em] text-muted uppercase">{group}</h2>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {AGENT_ACTIONS.filter((action) => action.group === group).map((action) => (
+                    <ActionButton
+                      key={action.id}
+                      action={action}
+                      disabled={pending}
+                      onClick={() => pick(action)}
+                      variant="card"
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         ) : (
           <div className="space-y-4 pb-4">
@@ -418,14 +459,18 @@ export function Console({
                 </p>
                 <div className={message.role === "user" ? "glass-user rounded-3xl rounded-br-md px-4 py-3" : "glass rounded-3xl rounded-bl-md px-4 py-3"}>
                   <p className="text-sm leading-6 [overflow-wrap:anywhere]">{message.text}</p>
+                  {message.card ? <FactSheet card={message.card} /> : null}
                   {message.steps && message.steps.length > 0 ? (
-                    <ol className="mt-3 space-y-1 border-t border-white/10 pt-3">
-                      {message.steps.map((step, index) => (
-                        <li key={`${message.id}-${index}`} className="text-xs text-muted">
-                          <span className="text-accent">{step.sep}</span> {step.title}
-                        </li>
-                      ))}
-                    </ol>
+                    <details className="mt-3 border-t border-white/10 pt-2">
+                      <summary className="cursor-pointer text-xs text-accent">Pasos del anchor</summary>
+                      <ol className="mt-2 space-y-1">
+                        {message.steps.map((step, index) => (
+                          <li key={`${message.id}-${index}`} className="text-xs text-muted">
+                            <span className="text-accent">{step.sep}</span> {step.title}
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
                   ) : null}
                   {message.transaction ? <Receipt transaction={message.transaction} /> : null}
                   {message.smartWallet ? <SmartWalletCard wallet={message.smartWallet} /> : null}
@@ -447,57 +492,47 @@ export function Console({
 
       <footer className="px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {quiet ? null : (
-          <div className="mb-3 flex items-center gap-3">
+          <div className="mb-2 flex items-center gap-3">
             <VoiceOrb phase={phase} />
             <p className="line-clamp-2 min-w-0 flex-1 text-sm text-muted">{caption}</p>
           </div>
         )}
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={listen}
-            disabled={pending}
-            aria-label={phase === "listening" ? "Escuchando" : "Hablar"}
-            className="grid h-20 w-20 place-items-center rounded-full bg-accent text-sm font-medium text-background disabled:opacity-50"
-          >
-            {phase === "listening" ? "···" : "Hablar"}
-          </button>
-        </div>
-        <div className="mt-4 space-y-2">
-          {PROMPT_GROUPS.map((group) => (
-            <div key={group.label}>
-              <p className="mb-1 text-[10px] tracking-[0.16em] text-muted uppercase">{group.label}</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-                {group.prompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void send(prompt)}
-                    className="shrink-0 rounded-full border border-line px-3 py-2 text-xs text-muted disabled:opacity-50"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+          {AGENT_ACTIONS.map((action) => (
+            <ActionButton
+              key={action.id}
+              action={action}
+              disabled={pending}
+              onClick={() => pick(action)}
+              variant="chip"
+            />
           ))}
         </div>
         <form
-          className="mt-3 flex gap-2"
+          className="flex items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             void send(draft);
           }}
         >
+          <button
+            type="button"
+            onClick={listen}
+            disabled={pending}
+            aria-label={phase === "listening" ? "Escuchando" : "Hablar"}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-signal text-xs font-medium text-[#1c1408] disabled:opacity-50"
+          >
+            {phase === "listening" ? "···" : "Voz"}
+          </button>
           <label className="sr-only" htmlFor="order">
             Instrucción para el agente
           </label>
           <input
             id="order"
+            ref={orderRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="O escríbela"
+            placeholder="Escribe o habla"
             disabled={pending}
             maxLength={500}
             enterKeyHint="send"
@@ -511,6 +546,16 @@ export function Console({
             Enviar
           </button>
         </form>
+        {smartWallet ? (
+          <a
+            className="mt-2 block text-center font-mono text-[10px] text-accent"
+            href={`https://stellar.expert/explorer/testnet/contract/${smartWallet}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Smart wallet {smartWallet.slice(0, 4)}…{smartWallet.slice(-4)}
+          </a>
+        ) : null}
         {error ? <p className="mt-2 text-center text-xs text-danger">{error}</p> : null}
       </footer>
     </div>
